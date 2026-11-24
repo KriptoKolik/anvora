@@ -24,6 +24,12 @@ export const SITE = {
     "0x39F9819744EE83f337aab7269e14B06a1922E5D5", // $ANVORA, the official Anvora token
   ],
 
+  // Corrections for on-chain metadata, keyed by curve address. On-chain metadata can't be
+  // edited, so this site shows these values instead (other sites still show the on-chain ones).
+  metadataOverrides: {
+    "0x39F9819744EE83f337aab7269e14B06a1922E5D5": { twitter: "https://x.com/anvoraapp" }, // $ANVORA
+  },
+
   // Launches hidden from this site's lists (curve or token addresses). They stay on-chain and
   // their token pages still open from a direct link.
   hiddenTokens: [

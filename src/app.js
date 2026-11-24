@@ -142,6 +142,8 @@ const avatar = (x, cls = "") => {
   const letter = (String(x.symbol || x.meta?.symbol || "?").slice(0, 1).toUpperCase().match(/[A-Z0-9]/) || ["?"])[0];
   return img ? `<img class="avatar ${cls}" src="${esc(img)}" alt="">` : `<div class="avatar ${cls}">${letter}</div>`;
 };
+const OVERRIDES = Object.fromEntries(Object.entries(SITE.metadataOverrides || {}).map(([k, v]) => [k.toLowerCase(), v]));
+const withOverrides = (curve, meta) => ({ ...(meta || {}), ...(OVERRIDES[String(curve || "").toLowerCase()] || {}) });
 const OFFICIAL = new Set((SITE.officialTokens || []).map((x) => String(x).toLowerCase()));
 const isOfficial = (...addrs) => addrs.some((a) => a && OFFICIAL.has(String(a).toLowerCase()));
 const officialBadge = `<span class="badge b-official" title="The official ${esc(SITE.name)} token">✓ Official</span>`;
@@ -390,7 +392,7 @@ async function enrich(list) {
     const r = res.slice(i * per, (i + 1) * per).map((y) => (y.status === "success" ? y.result : undefined));
     [x.status, x.sqrtPrice, x.quoteReserve, x.threshold, x.pool, x.name, x.symbol, x.decimals, x.supply] = r;
     x.decimals = Number(x.decimals ?? 18);
-    x.meta = readMeta(x.metadataURI);
+    x.meta = withOverrides(x.curve, readMeta(x.metadataURI));
     x.price = x.sqrtPrice ? sqrtToPrice(x.sqrtPrice, x.decimals) : 0;
     x.mcap = x.supply ? x.price * Number(formatUnits(x.supply, x.decimals)) : 0;
     x.progress = x.status >= 2 ? 1 : x.threshold ? Math.min(1, Number(x.quoteReserve ?? 0n) / Number(x.threshold)) : 0;
@@ -514,6 +516,7 @@ async function viewToken(id, arg) {
   const mcap = price * Number(formatUnits(tok.supply, tok.decimals));
   const thr = st.migrationQuoteThreshold;
   const progress = st.status >= 2 ? 1 : thr ? Math.min(1, Number(st.quoteReserve) / Number(thr)) : 0;
+  meta = withOverrides(curve, meta);
   const links = [["Website", meta.website], ["X", meta.twitter], ["Telegram", meta.telegram]].filter(([, u]) => safeUrl(u || ""));
   const feePct = (Number(st.currentFeeBps) / 100).toFixed(2);
 
