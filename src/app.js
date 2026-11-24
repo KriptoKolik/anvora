@@ -565,12 +565,12 @@ async function loadTrades(ctx, id) {
       if (ev.eventName !== "Swap") continue;
       const a = ev.args;
       trades.push({ sell: a.baseForQuote, weth: a.baseForQuote ? a.amountOut : a.amountIn, tokens: a.baseForQuote ? a.amountIn : a.amountOut,
-        price: sqrtToPrice(a.nextSqrtPrice, dec), trader: a.trader, tx: l.transactionHash, block: Number(l.blockNumber), time: l.timeStamp ? Number(l.timeStamp) : null });
+        price: sqrtToPrice(a.nextSqrtPrice, dec), trader: a.recipient && a.recipient !== zeroAddress ? a.recipient : a.trader, tx: l.transactionHash, block: Number(l.blockNumber), time: l.timeStamp ? Number(l.timeStamp) : null });
     } catch {}
   }
   trades.sort((a, b) => a.block - b.block);
   drawChart(trades);
-  $("#trades").innerHTML = trades.length ? `<table><thead><tr><th>Type</th><th class="r">WETH</th><th class="r">${esc(ctx.tok.symbol)}</th><th>Trader</th><th class="r">When</th></tr></thead><tbody>
+  $("#trades").innerHTML = trades.length ? `<table class="trades"><thead><tr><th>Type</th><th class="r">WETH</th><th class="r">${esc(ctx.tok.symbol)}</th><th>Trader</th><th class="r">When</th></tr></thead><tbody>
     ${trades.slice(-40).reverse().map((t) => `<tr><td class="${t.sell ? "bad" : "good"}">${t.sell ? "Sell" : "Buy"}</td><td class="r">${fu(t.weth, 18)}</td><td class="r">${fu(t.tokens, dec)}</td>
       <td><a class="mono" href="${addrUrl(t.trader)}" target="_blank" rel="noopener">${short(t.trader)}</a></td><td class="r"><a href="${txUrl(t.tx)}" target="_blank" rel="noopener">${t.time ? ago(t.time) : "#" + t.block}</a></td></tr>`).join("")}
     </tbody></table>` : `<div class="muted">No trades yet on the bonding curve.</div>`;
