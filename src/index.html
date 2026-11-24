@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en" data-palette="lime" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Anvora · Forge tokens on GIWA</title>
+  <meta name="description" content="Anvora: forge a token on GIWA, watch it rise on the bonding curve, graduate into real liquidity. Built with the Ammora SDK." />
+  <meta name="theme-color" content="#141518" />
+  <script>try{var m=localStorage.getItem("anvora.theme");document.documentElement.dataset.theme=m||"dark"}catch(e){}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 36 32%22%3E%3Crect x=%221%22 y=%226%22 width=%2228%22 height=%2224%22 rx=%225%22 fill=%22%23c6f432%22/%3E%3Cpath d=%22M8.5 26 L15 12 L21.5 26%22 fill=%22none%22 stroke=%22%23141518%22 stroke-width=%223.4%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/%3E%3Cpath d=%22M10.2 22.2 C14.6 22 19 20.5 22.6 16%22 fill=%22none%22 stroke=%22%23141518%22 stroke-width=%222.8%22 stroke-linecap=%22round%22/%3E%3Cpath d=%22M29.5 1 l1.1 3.4 3.4 1.1 -3.4 1.1 -1.1 3.4 -1.1 -3.4 -3.4 -1.1 3.4 -1.1z%22 fill=%22%23f1f3ec%22 stroke=%22%23141518%22 stroke-width=%221%22 paint-order=%22stroke%22/%3E%3C/svg%3E" />
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#/" aria-label="Anvora home">
+      <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 32"><rect x="1" y="6" width="28" height="24" rx="5" fill="#c6f432"/><path d="M8.5 26 L15 12 L21.5 26" fill="none" stroke="#141518" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.2 22.2 C14.6 22 19 20.5 22.6 16" fill="none" stroke="#141518" stroke-width="2.8" stroke-linecap="round"/><path d="M29.5 1 l1.1 3.4 3.4 1.1 -3.4 1.1 -1.1 3.4 -1.1 -3.4 -3.4 -1.1 3.4 -1.1z" fill="#f1f3ec" stroke="#141518" stroke-width="1" paint-order="stroke"/></svg>
+      <span>Anvora</span>
+    </a>
+    <nav class="nav">
+      <a href="#/" data-r="">Explore</a>
+      <a href="#/create" data-r="create">Forge a token</a>
+      <a href="#/portfolio" data-r="portfolio">Portfolio</a>
+      <a href="#/wrap" data-r="wrap">ETH ⇄ WETH</a>
+    </nav>
+    <div class="right">
+      <button class="theme" id="theme" type="button" aria-label="Switch to dark mode"></button>
+      <div id="wallet"></div>
+    </div>
+  </header>
+  <div id="netwarn"></div>
+  <main id="app"></main>
+  <footer class="foot">
+    <div>Anvora is an independent community launchpad on <b>GIWA Sepolia testnet</b> (chain 91342), not an official Ammora product. Testnet only: never use real funds.</div>
+    <div id="footlinks">Powered by the <a href="https://www.npmjs.com/package/@ammora-protocol/sdk" target="_blank" rel="noopener">Ammora SDK</a> · <a href="https://sepolia-explorer.giwa.io" target="_blank" rel="noopener">GIWA Explorer</a> · <a href="#/setup">Owner setup</a></div>
+  </footer>
+  <div id="toasts"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
