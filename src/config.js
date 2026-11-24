@@ -19,6 +19,11 @@ export const SITE = {
   // Defaults for the setup page.
   setupDefaults: { graduationWeth: "0.05", saleSupply: "800000000" },
 
+  // Official launches: shown with an "Official" badge and pinned to the top of Explore.
+  officialTokens: [
+    "0x39F9819744EE83f337aab7269e14B06a1922E5D5", // $ANVORA, the official Anvora token
+  ],
+
   // Launches hidden from this site's lists (curve or token addresses). They stay on-chain and
   // their token pages still open from a direct link.
   hiddenTokens: [

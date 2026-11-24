@@ -142,6 +142,9 @@ const avatar = (x, cls = "") => {
   const letter = (String(x.symbol || x.meta?.symbol || "?").slice(0, 1).toUpperCase().match(/[A-Z0-9]/) || ["?"])[0];
   return img ? `<img class="avatar ${cls}" src="${esc(img)}" alt="">` : `<div class="avatar ${cls}">${letter}</div>`;
 };
+const OFFICIAL = new Set((SITE.officialTokens || []).map((x) => String(x).toLowerCase()));
+const isOfficial = (...addrs) => addrs.some((a) => a && OFFICIAL.has(String(a).toLowerCase()));
+const officialBadge = `<span class="badge b-official" title="The official ${esc(SITE.name)} token">✓ Official</span>`;
 const statusBadge = (s) => (s === 1 ? `<span class="badge b-live">Live</span>`
   : s === 2 ? `<span class="badge b-ready">Ready to graduate</span>`
   : s === 3 ? `<span class="badge b-grad">Graduated</span>` : `<span class="badge b-off">Inactive</span>`);
@@ -452,6 +455,7 @@ async function viewExplore(id) {
     if (ui.sort === "hot") rows = [...rows].sort((a, b) => b.raised - a.raised || b.block - a.block);
     if (ui.sort === "mcap") rows = [...rows].sort((a, b) => m(b) - m(a));
     if (ui.sort === "prog") rows = [...rows].sort((a, b) => b.progress - a.progress);
+    rows = [...rows.filter((x) => isOfficial(x.curve, x.token)), ...rows.filter((x) => !isOfficial(x.curve, x.token))];
     $("#cards").innerHTML = rows.length ? rows.slice(0, ui.limit).map(card).join("")
       : `<div class="empty" style="grid-column:1/-1">No launches match. <a href="#/create">Launch the first one</a>.</div>`;
     $("#more").innerHTML = rows.length > ui.limit ? `<button class="btn" id="morebtn">Load more (${rows.length - ui.limit} left)</button>` : "";
@@ -466,7 +470,7 @@ async function viewExplore(id) {
 }
 const card = (x) => `
   <a class="card tcard" href="#/token/${x.curve}">
-    <div class="thead">${avatar(x)}<div style="flex:1"><b>${esc(x.name || x.meta?.name || "Unnamed")}</b><span class="muted mono">$${esc(x.symbol || "?")}</span></div>${statusBadge(x.status)}</div>
+    <div class="thead">${avatar(x)}<div style="flex:1"><b>${esc(x.name || x.meta?.name || "Unnamed")}</b><span class="muted mono">$${esc(x.symbol || "?")}</span></div><div style="display:grid;gap:4px;justify-items:end">${statusBadge(x.status)}${isOfficial(x.curve, x.token) ? officialBadge : ""}</div></div>
     ${x.meta?.description ? `<div class="muted" style="font-size:13px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc(x.meta.description)}</div>` : ""}
     <div class="kv"><span>Market cap</span><b>${x.junk ? "—" : `${fmt(x.mcap)} ETH`}</b></div>
     <div class="kv"><span>Raised</span><b>${fmt(x.raised)} WETH</b></div>
@@ -519,7 +523,7 @@ async function viewToken(id, arg) {
       <div class="card">
         <div class="thero">${avatar({ meta, symbol: tok.symbol }, "lg")}
           <div style="flex:1"><h2>${esc(tok.name)} <span class="muted mono" style="font-size:16px">$${esc(tok.symbol)}</span></h2>
-            <div style="margin-top:6px">${statusBadge(st.status)} <span class="muted" style="font-size:13px">Config #${st.configId} · fee ${feePct}%</span></div>
+            <div style="margin-top:6px">${statusBadge(st.status)} ${isOfficial(curve, tok.address) ? officialBadge : ""} <span class="muted" style="font-size:13px">Config #${st.configId} · fee ${feePct}%</span></div>
             ${links.length ? `<div class="links">${links.map(([n, u]) => `<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener nofollow">${n} ↗</a>`).join("")}</div>` : ""}</div></div>
         ${meta.description ? `<p class="muted" style="margin:14px 0 0">${esc(meta.description)}</p>` : ""}
       </div>
