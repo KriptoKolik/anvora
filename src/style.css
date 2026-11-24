@@ -163,6 +163,18 @@ th{color:var(--mute);font-weight:600}td.r,th.r{text-align:right;white-space:nowr
 .toast a{color:var(--ironink);text-decoration:underline}
 .toast.ok{border-left:4px solid #4ade80}.toast.err{border-left:4px solid #f87171}
 
+/* swap */
+.swap{display:grid;gap:12px}
+.sbox{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px;display:grid;gap:10px}
+.srow{display:flex;gap:10px;align-items:center}
+.samt{flex:1;font-size:26px;font-weight:700;min-height:48px;border:0;background:none;padding:0}
+.samt:focus{outline:none}.out-amt{display:flex;align-items:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.asset{gap:8px;padding:8px 12px;flex:none}.asset:disabled{opacity:1;cursor:default}.asset span{color:var(--mute);font-size:12px}
+.avatar.sm{width:24px;height:24px;border-radius:7px;font-size:12px}.avatar.eth{background:var(--panel2);color:var(--ink)}
+.flip{justify-self:center;width:44px;padding:0;margin:-18px 0;position:relative;z-index:1;background:var(--panel);font-size:18px}
+.plist{display:grid;gap:4px;max-height:50vh;overflow-y:auto}
+.prow{appearance:none;display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;border-radius:10px;padding:10px;color:var(--ink);font:inherit;cursor:pointer;text-align:left;min-height:48px}
+.prow:hover{background:var(--panel2)}.prow span{flex:1;display:grid}.prow em{font-style:normal;color:var(--mute);font-size:13px}
 @media (max-width:900px){.hero,.tok{grid-template-columns:minmax(0,1fr)}.trade{position:static}}
 @media (max-width:600px){.fgrid,.cfg{grid-template-columns:minmax(0,1fr)}.sgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .top{gap:10px 12px;grid-template-columns:minmax(0,1fr) auto}.nav{grid-column:1/-1;grid-row:2}.nav a{padding:8px 10px;font-size:15px}.stat b{font-size:22px}}

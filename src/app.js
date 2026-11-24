@@ -672,7 +672,7 @@ function tradeBox(ctx, eng) {
   sessionStorage.removeItem("anvora.prefillBuy");
   const t = { side: "buy", slip: SITE.defaultSlippageBps };
   $("#trade").innerHTML = `
-    <h3>${esc(eng.title)}</h3>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h3>${esc(eng.title)}</h3><a href="#/swap/${ctx.curve}" style="font-size:13px;white-space:nowrap">Open in Swap</a></div>
     <div class="seg trade" id="side"><button class="on buy" data-s="buy">Buy</button><button class="sell" data-s="sell">Sell</button></div>
     <div><label class="l" id="amtl">You pay (ETH)</label><input class="inp" id="amt" inputmode="decimal" placeholder="0.0" value="${esc(prefill)}" />
       <div class="help" id="bal">&nbsp;</div><div style="display:flex;gap:6px;margin-top:8px" id="quick"></div></div>
@@ -987,6 +987,155 @@ async function viewPortfolio(id) {
     : `<div class="empty" style="grid-column:1/-1">No tokens yet. <a href="#/">Explore launches</a> or <a href="#/create">launch one</a>.</div>`;
 }
 
+/* ───────────── view: swap ───────────── */
+// One screen to swap ETH ⇄ any Ammora launch token. Live curves trade on their bonding curve,
+// graduated tokens in their Ammora pool: the same engines as the token page.
+const sw = { curve: null, buy: true, slip: SITE.defaultSlippageBps };
+
+async function viewSwap(id, arg) {
+  if (arg && isAddress(arg)) sw.curve = getAddress(arg);
+  app.innerHTML = `<div class="form" style="max-width:520px">
+    <div><h1 style="font-size:40px">Swap</h1><p class="muted" style="margin:10px 0 0">Swap ETH for any token launched on Ammora, and back. Live tokens trade on their bonding curve, graduated tokens in their Ammora pool.</p></div>
+    <div class="card swap">
+      <div class="sbox"><div class="kv"><span>You pay</span><span id="sbal1"></span></div>
+        <div class="srow"><input class="inp samt" id="samt" inputmode="decimal" placeholder="0.0" /><button class="btn asset" id="a1"></button></div>
+        <div id="squick" style="display:flex;gap:6px;flex-wrap:wrap"></div></div>
+      <button class="btn flip" id="flip" aria-label="Switch direction">⇅</button>
+      <div class="sbox"><div class="kv"><span>You receive</span><span id="sbal2"></span></div>
+        <div class="srow"><div class="samt out-amt" id="sout">0.0</div><button class="btn asset" id="a2"></button></div></div>
+      <div><label class="l">Slippage</label><div class="seg" id="sslip">${[50, 100, 300, 500].map((b) => `<button data-b="${b}" class="${b === sw.slip ? "on" : ""}">${b / 100}%</button>`).join("")}</div></div>
+      <div class="out" id="sq"><span class="muted">Choose a token and enter an amount.</span></div>
+      <button class="btn pri block" id="sgo" data-wl="Swap">${W.address ? "Swap" : "Connect wallet"}</button>
+      <div class="help">Buys are paid in WETH: missing WETH is wrapped from your ETH automatically. Sells pay out WETH; unwrap it on the <a href="#/wrap">Wrap</a> page.</div>
+    </div></div>`;
+
+  let list = [];
+  try { list = (await loadLaunches()).filter((x) => x.status === 1 || x.status === 3); } catch {}
+  if (id !== renderId) return;
+  if (!sw.curve && list.length) sw.curve = [...list].sort((a, b) => b.raised - a.raised)[0].curve;
+
+  let ctx = null, eng = null, bals = null, qn = 0, timer;
+  const tokLabel = () => {
+    const x = list.find((y) => y.curve === sw.curve);
+    if (!ctx && !x) return `<b>Select token</b><span>▾</span>`;
+    const sym = ctx?.tok.symbol || x?.symbol || "?";
+    return `${avatar(x ? { ...x } : { symbol: sym }, "sm")}<b>${esc(sym)}</b><span>▾</span>`;
+  };
+  const ethLabel = `<span class="avatar sm eth">Ξ</span><b>ETH</b>`;
+  const paint = () => {
+    $("#a1").innerHTML = sw.buy ? ethLabel : tokLabel();
+    $("#a2").innerHTML = sw.buy ? tokLabel() : ethLabel;
+    $("#a1").disabled = sw.buy; $("#a2").disabled = !sw.buy;
+    showBal();
+  };
+  const showBal = () => {
+    if (!bals || !ctx) { $("#sbal1").textContent = ""; $("#sbal2").textContent = ""; return; }
+    const ethTxt = `${fu(bals.eth, 18)} ETH + ${fu(bals.weth, 18)} WETH`, tokTxt = `${fu(bals.tk, ctx.tok.decimals)} ${ctx.tok.symbol}`;
+    $("#sbal1").textContent = sw.buy ? ethTxt : tokTxt;
+    $("#sbal2").textContent = sw.buy ? tokTxt : ethTxt;
+    $("#squick").innerHTML = sw.buy ? ["0.001", "0.005", "0.01"].map((v) => `<button class="btn sm" data-v="${v}">${v}</button>`).join("")
+      : [25, 50, 100].map((v) => `<button class="btn sm" data-p="${v}">${v}%</button>`).join("");
+  };
+  const loadBals = async () => {
+    bals = null;
+    if (!W.address || !ctx) return showBal();
+    try {
+      const [eth, weth, tk] = await Promise.all([pc.getBalance({ address: W.address }), balanceOf(WETH, W.address), balanceOf(ctx.tok.address, W.address)]);
+      bals = { eth, weth, tk };
+    } catch {}
+    showBal();
+  };
+  const select = async (curve) => {
+    sw.curve = curve; ctx = null; eng = null;
+    paint();
+    $("#sq").innerHTML = `<span class="muted">Loading token…</span>`;
+    try {
+      ctx = await retryLag(() => loadCtx(curve), 4);
+      if (id !== renderId) return;
+      eng = ctx.st.status === 1 ? curveEngine(ctx) : ctx.st.status === 3 ? poolEngine(ctx) : null;
+      if (history.replaceState) history.replaceState(null, "", `#/swap/${curve}`);
+      paint(); loadBals();
+      if (!eng) { $("#sq").innerHTML = `<span class="muted">This token is ready to graduate and can't be traded right now. <a href="#/token/${curve}">Open its page</a> to graduate it.</span>`; return; }
+      requote();
+    } catch (e) { $("#sq").innerHTML = `<span class="bad">${esc(errText(e))}</span>`; }
+  };
+  const amount = () => {
+    const v = $("#samt").value.trim(); if (!v) return 0n;
+    try { return parseUnits(v, sw.buy ? 18 : (ctx?.tok.decimals ?? 18)); } catch { return -1n; }
+  };
+  const requote = () => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      const n = ++qn, amt = amount();
+      if (!eng) return;
+      if (amt === 0n) { $("#sout").textContent = "0.0"; $("#sq").innerHTML = `<span class="muted">Enter an amount to see a live quote.</span>`; return; }
+      if (amt < 0n) { $("#sq").innerHTML = `<span class="bad">Invalid amount.</span>`; return; }
+      $("#sq").innerHTML = `<span class="muted">Quoting…</span>`;
+      try {
+        const side = sw.buy ? "buy" : "sell";
+        const q = await eng.quote(side, amt, sw.slip);
+        if (n !== qn) return;
+        const outDec = sw.buy ? ctx.tok.decimals : 18, outSym = sw.buy ? ctx.tok.symbol : "WETH";
+        const min = q.amountOut * BigInt(10_000 - sw.slip) / 10_000n;
+        $("#sout").textContent = fu(q.amountOut, outDec, 6);
+        $("#sq").innerHTML = `<div class="kv"><span>Route</span><b>${ctx.st.status === 1 ? "Bonding curve" : "Ammora pool"}</b></div>
+          <div class="kv"><span>Minimum received</span><b>${fu(min, outDec, 6)} ${esc(outSym)}</b></div>
+          <div class="kv"><span>Trading fee</span><b>${fu(q.fee, 18, 4)} WETH</b></div>${q.note || ""}`;
+      } catch (e) { if (n === qn) { $("#sout").textContent = "—"; $("#sq").innerHTML = `<span class="bad">${esc(errText(e))}</span>`; } }
+    }, 350);
+  };
+  const pick = () => {
+    const bg = document.createElement("div");
+    bg.className = "modal-bg";
+    bg.innerHTML = `<div class="modal"><h3>Select a token</h3><input class="inp" id="pq" placeholder="Search name, ticker or address" />
+      <div class="plist" id="pl"></div><button class="btn block" data-x>Close</button></div>`;
+    const draw = () => {
+      const q = $("#pq", bg).value.trim().toLowerCase();
+      const rows = list.filter((x) => !q || [x.name, x.symbol, x.token, x.curve].some((v) => String(v || "").toLowerCase().includes(q)))
+        .filter((x) => q || (!x.junk && !x.test)).sort((a, b) => b.raised - a.raised).slice(0, 60);
+      $("#pl", bg).innerHTML = rows.length ? rows.map((x) => `<button class="prow" data-c="${x.curve}">${avatar(x, "sm")}<span><b>${esc(x.name || "Unnamed")}</b><em>$${esc(x.symbol || "?")}</em></span>${statusBadge(x.status)}</button>`).join("")
+        : `<div class="muted" style="padding:12px">No tokens match.</div>`;
+    };
+    bg.onclick = (e) => {
+      const r = e.target.closest(".prow");
+      if (r) { bg.remove(); $("#samt").value = ""; select(r.dataset.c); }
+      else if (e.target === bg || e.target.closest("[data-x]")) bg.remove();
+    };
+    document.body.appendChild(bg);
+    $("#pq", bg).oninput = draw;
+    draw();
+  };
+  $("#a1").onclick = pick; $("#a2").onclick = pick;
+  $("#flip").onclick = () => { sw.buy = !sw.buy; $("#samt").value = ""; $("#sout").textContent = "0.0"; paint(); requote(); };
+  $("#samt").oninput = requote;
+  $("#squick").onclick = (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.v) $("#samt").value = b.dataset.v;
+    else if (bals && ctx) $("#samt").value = formatUnits(bals.tk * BigInt(b.dataset.p) / 100n, ctx.tok.decimals);
+    requote();
+  };
+  $("#sslip").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; sw.slip = Number(b.dataset.b); $("#sslip").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); requote(); };
+  $("#sgo").onclick = async () => {
+    const go = $("#sgo");
+    try {
+      await ensureWallet();
+      if (!eng) throw new Error("Choose a token to swap.");
+      const amt = amount();
+      if (amt <= 0n) throw new Error("Enter an amount.");
+      go.disabled = true;
+      const side = sw.buy ? "buy" : "sell";
+      await runSteps(sw.buy ? `Buying $${ctx.tok.symbol}` : `Selling $${ctx.tok.symbol}`, await eng.steps(side, amt, sw.slip));
+      toast("Swap complete.", "ok");
+      $("#samt").value = ""; $("#sout").textContent = "0.0";
+      loadBals(); requote();
+    } catch (e) { if (!e.shown) toast(esc(errText(e)), "err", 9000); }
+    finally { go.disabled = false; }
+  };
+  paint();
+  if (sw.curve) select(sw.curve);
+  else $("#sq").innerHTML = `<span class="muted">No tradable tokens found yet.</span>`;
+}
+
 /* ───────────── view: wrap ───────────── */
 async function viewWrap() {
   app.innerHTML = `<div class="form card" style="max-width:520px"><h2>ETH ⇄ WETH</h2>
@@ -1137,6 +1286,7 @@ async function render() {
     if (route === "token") return await viewToken(id, arg);
     if (route === "create") return await viewCreate(id);
     if (route === "portfolio") return await viewPortfolio(id);
+    if (route === "swap") return await viewSwap(id, arg);
     if (route === "wrap") return await viewWrap();
     if (route === "setup") return viewSetup();
     return await viewExplore(id);
