@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 export const SITE = {
   name: "Anvora",
-  tagline: "Forge a token on GIWA in one transaction. Watch it rise on an Ammora bonding curve until the market fills it, then graduate into a permanent pool.",
+  tagline: "Launch a token on GIWA in one transaction. Watch it rise on an Ammora bonding curve until the market fills it, then graduate into a permanent pool.",
 
   // Your launchpad's own Ammora V4 Config. Every token launched on this site uses it,
   // and its partner fee recipient (you) earns a share of trading fees.

@@ -407,9 +407,9 @@ async function viewExplore(id) {
   app.innerHTML = `
   <section class="hero">
     <div class="copy">
-      <h1>Forge a token. <em>Watch it rise</em> on the curve.</h1>
+      <h1>Launch a token. <em>Watch it rise</em> on the curve.</h1>
       <p>${esc(SITE.tagline)}</p>
-      <div class="row"><a class="btn pri" href="#/create">Forge a token</a><button class="btn" id="browse">Browse launches</button></div>
+      <div class="row"><a class="btn pri" href="#/create">Launch a token</a><button class="btn" id="browse">Browse launches</button></div>
     </div>
     <div class="plate"><div class="ph"><i></i>Live on GIWA Sepolia</div>
       <div class="stats" id="stats">${[0, 1, 2, 3].map(() => `<div class="stat"><span>&nbsp;</span><b>—</b></div>`).join("")}</div>
@@ -451,7 +451,7 @@ async function viewExplore(id) {
     if (ui.sort === "mcap") rows = [...rows].sort((a, b) => m(b) - m(a));
     if (ui.sort === "prog") rows = [...rows].sort((a, b) => b.progress - a.progress);
     $("#cards").innerHTML = rows.length ? rows.slice(0, ui.limit).map(card).join("")
-      : `<div class="empty" style="grid-column:1/-1">No launches match. <a href="#/create">Forge the first one</a>.</div>`;
+      : `<div class="empty" style="grid-column:1/-1">No launches match. <a href="#/create">Launch the first one</a>.</div>`;
     $("#more").innerHTML = rows.length > ui.limit ? `<button class="btn" id="morebtn">Load more (${rows.length - ui.limit} left)</button>` : "";
     $("#morebtn")?.addEventListener("click", () => { ui.limit += PAGE; draw(); });
   };
@@ -803,7 +803,7 @@ async function viewCreate(id) {
   }
   app.innerHTML = `
   <div class="form">
-    <div><h1 style="font-size:40px">Forge a token</h1><p class="muted" style="margin:10px 0 0">One transaction creates an ERC-20 token and its Ammora bonding curve. Name, ticker, description, links and image are stored on-chain.</p></div>
+    <div><h1 style="font-size:40px">Launch a token</h1><p class="muted" style="margin:10px 0 0">One transaction creates an ERC-20 token and its Ammora bonding curve. Name, ticker, description, links and image are stored on-chain.</p></div>
     <div class="card cfg" id="cfg"><div class="muted">Reading launch Config #${cid}…</div></div>
     <div class="card fgrid">
       <div><label class="l" for="name">Name</label><input class="inp" id="name" maxlength="40" placeholder="Spark Cat" /></div>
@@ -817,7 +817,7 @@ async function viewCreate(id) {
       <div><label class="l" for="first">First buy in ETH (optional)</label><input class="inp" id="first" inputmode="decimal" placeholder="0.001" /><div class="help" id="firsthelp">Bought in the same transaction as the launch, so no bot can buy before you.</div></div>
     </div>
     <div id="cmsg"></div>
-    <button class="btn pri block" id="launch" data-wl="Forge token">${W.address ? "Forge token" : "Connect wallet & forge"}</button>
+    <button class="btn pri block" id="launch" data-wl="Launch token">${W.address ? "Launch token" : "Connect wallet & launch"}</button>
     <div class="help" style="text-align:center">You become the token's creator and earn the creator share of curve trading fees set by the Config.</div>
   </div>`;
 
@@ -934,7 +934,7 @@ async function viewCreate(id) {
           record(await sendTx({ to: L.factory, data: tx.data, value: tx.value ?? 0n }, "Token launch"));
         } });
       }
-      await runSteps(`Forging ${name}`, steps);
+      await runSteps(`Launching ${name}`, steps);
       if (firstBuy > 0n && !atomic) sessionStorage.setItem("anvora.prefillBuy", firstStr);
       toast(`$${esc(symbol)} is live!${atomic ? " Your first buy is in." : firstBuy > 0n ? " Confirm your first buy on the token page." : ""}`, "ok", 9000);
       location.hash = `#/token/${created.curve}`;
@@ -982,7 +982,7 @@ async function viewPortfolio(id) {
       <div class="kv"><span>Balance</span><b>${fu(x.bal, x.decimals)}</b></div>
       <div class="kv"><span>Value</span><b>${fmt(Number(formatUnits(x.bal, x.decimals)) * x.price)} ETH</b></div>
       ${x.creator.toLowerCase() === me ? `<div class="kv"><span>Role</span><b class="good">You launched this</b></div>` : ""}</a>`).join("")
-    : `<div class="empty" style="grid-column:1/-1">No tokens yet. <a href="#/">Explore launches</a> or <a href="#/create">forge one</a>.</div>`;
+    : `<div class="empty" style="grid-column:1/-1">No tokens yet. <a href="#/">Explore launches</a> or <a href="#/create">launch one</a>.</div>`;
 }
 
 /* ───────────── view: wrap ───────────── */
