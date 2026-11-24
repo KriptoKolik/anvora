@@ -19,6 +19,13 @@ export const SITE = {
   // Defaults for the setup page.
   setupDefaults: { graduationWeth: "0.05", saleSupply: "800000000" },
 
+  // Launches hidden from this site's lists (curve or token addresses). They stay on-chain and
+  // their token pages still open from a direct link.
+  hiddenTokens: [
+    "0xe41b668173Bb967152956Dc92D1AB95feB79263e", // Anvora Test (ANVTEST), Config #96
+    "0x94E293136b3a97aBFE7f7C917a449868E3ACe230", // Moraforge Test (MFTEST), old Config #94
+  ],
+
   // Default trade slippage in basis points (100 = 1%).
   defaultSlippageBps: 100,
 

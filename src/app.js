@@ -364,7 +364,9 @@ async function loadLaunches(force = false) {
   const byCurve = new Map();
   for (const l of raw) { try { const x = decodeLaunch(l); byCurve.set(x.curve, x); } catch {} }
   for (const x of store.get("anvora.created", [])) if (!byCurve.has(x.curve)) byCurve.set(x.curve, { ...x, configId: BigInt(x.configId) });
-  const list = [...byCurve.values()].sort((a, b) => b.block - a.block);
+  const hidden = new Set((SITE.hiddenTokens || []).map((x) => String(x).toLowerCase()));
+  const list = [...byCurve.values()].filter((x) => !hidden.has(x.curve.toLowerCase()) && !hidden.has(x.token.toLowerCase()))
+    .sort((a, b) => b.block - a.block);
   await enrich(list);
   launchCache = { at: Date.now(), list };
   return list;
