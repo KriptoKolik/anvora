@@ -10,6 +10,7 @@
 - **New badge** on launches from the last 24 hours, and more compact token cards.
 - **ETH ⇄ WETH on the Swap page**: pick WETH to wrap or unwrap 1:1, no separate page needed.
 - **Wallet stays connected** after a page refresh (remembers which wallet you used).
+- **New Portfolio**: a one-line summary (holdings value, fees to claim, launches, trades) and tabs for Holdings, Earnings, Launches and Activity. Any wallet can be viewed at #/portfolio/<address>.
 - **$ANVORA graduated** into a permanent Ammora pool; pool buys and sells verified on-chain.
 
 ## Earlier

@@ -298,7 +298,8 @@ th{color:var(--mute);font-weight:600}td.r,th.r{text-align:right;white-space:nowr
 .psum-i b small{font-size:12px;font-weight:600;color:var(--mute)}
 .psum-i.hot{box-shadow:inset 0 -3px 0 var(--fire)}
 .psum-i .dots{font-style:normal;color:var(--mute)}
-.ptabs{display:flex;gap:4px;margin:18px 0 12px;border-bottom:1px solid var(--line);overflow-x:auto}
+.ptabs{display:flex;gap:4px;margin:18px 0 12px;border-bottom:1px solid var(--line);overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+.ptabs::-webkit-scrollbar{display:none}
 .ptabs button{border:0;background:none;color:var(--mute);font:inherit;font-weight:700;padding:10px 12px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
 .ptabs button.on{color:var(--ink);border-bottom-color:var(--fire)}
 .ptabs em{font-style:normal;font-size:11px;padding:0 6px;border-radius:99px;background:var(--panel2);color:var(--mute)}
@@ -313,7 +314,7 @@ a.prow2:hover{text-decoration:none;background:var(--panel2)}
 .pr-main span{font-size:12.5px}
 .pr-side{display:grid;gap:4px;justify-items:end;text-align:right;font-size:13.5px}
 .pr-side a{display:inline-flex;align-items:center;gap:4px;font-size:12.5px}
-.pk{font-size:12px;font-weight:800;min-width:62px}
+.pk{font-size:12px;font-weight:800;min-width:58px}
 .pempty{padding:22px;border:1px dashed var(--line);border-radius:12px;text-align:center;color:var(--mute)}
 @media (max-width:700px){.psum{grid-template-columns:1fr 1fr}.psum-i:nth-child(2){border-right:0}.psum-i:nth-child(-n+2){border-bottom:1px solid var(--line)}.phead h1{font-size:30px}}
 [hidden]{display:none!important}
