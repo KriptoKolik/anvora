@@ -121,10 +121,11 @@ label.l{display:block;font-size:13px;color:var(--mute);margin:0 0 6px;font-weigh
 .tok .left{display:grid;gap:18px}
 .thero{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
 .thero h2{font-size:30px}
-.thero{position:relative}.thero .share{position:absolute;top:0;right:0}
-.thero > div{padding-right:84px}
 .links{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-.links a{font-size:13px;background:var(--panel2);padding:4px 10px;border-radius:7px;color:var(--ink);font-weight:600}
+.links a,.lbtn{font-size:13px;background:var(--panel2);padding:6px 11px;border-radius:8px;color:var(--ink);font-weight:600;display:inline-flex;align-items:center;gap:5px;min-height:32px}
+.lbtn{appearance:none;border:0;font-family:inherit;cursor:pointer;background:var(--fire);color:var(--on-fire)}
+.links a:hover,.lbtn:hover{text-decoration:none;filter:brightness(1.1)}
+.ic{width:14px;height:14px;flex:none}.btn.icon{width:48px;padding:0}.btn.icon .ic{width:20px;height:20px}
 .sgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .trade{position:sticky;top:86px;display:grid;gap:14px;border-top:4px solid var(--fire)}
 .out{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:6px;font-size:13.5px}

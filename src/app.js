@@ -242,6 +242,8 @@ function renderHeader() {
   document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("on", a.dataset.r === r));
 }
 /* ───────────── sharing ───────────── */
+const ICON_SHARE = `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>`;
+const ICON_OUT = `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>`;
 const SITE_X = (SITE.links?.x || "").match(/x\.com\/([A-Za-z0-9_]+)/)?.[1] || "";
 const pageUrl = (hash) => `${location.origin}${location.pathname}${hash}`;
 // A small sheet: Share on X (prefilled post), the device's own share menu where it exists, Copy link.
@@ -449,7 +451,7 @@ async function viewExplore(id) {
     <div class="copy">
       <h1>Launch a token. <em>Watch it rise</em> on the curve.</h1>
       <p>${esc(SITE.tagline)}</p>
-      <div class="row"><a class="btn pri" href="#/create">Launch a token</a><button class="btn" id="browse">Browse launches</button><button class="btn" id="shareSite" aria-label="Share ${esc(SITE.name)}">Share ↗</button></div>
+      <div class="row"><a class="btn pri" href="#/create">Launch a token</a><button class="btn" id="browse">Browse launches</button><button class="btn icon" id="shareSite" aria-label="Share ${esc(SITE.name)}" title="Share ${esc(SITE.name)}">${ICON_SHARE}</button></div>
     </div>
     <div class="plate"><div class="ph"><i></i>Live on GIWA Sepolia</div>
       <div class="stats" id="stats">${[0, 1, 2, 3].map(() => `<div class="stat"><span>&nbsp;</span><b>—</b></div>`).join("")}</div>
@@ -559,10 +561,9 @@ async function viewToken(id, arg) {
     <div class="left">
       <div class="card">
         <div class="thero">${avatar({ meta, symbol: tok.symbol }, "lg")}
-          <button class="btn sm share" id="shareTok" aria-label="Share this token">Share ↗</button>
           <div style="flex:1"><h2>${esc(tok.name)} <span class="muted mono" style="font-size:16px">$${esc(tok.symbol)}</span></h2>
             <div style="margin-top:6px">${statusBadge(st.status)} ${isOfficial(curve, tok.address) ? officialBadge : ""} <span class="muted" style="font-size:13px">Config #${st.configId} · fee ${feePct}%</span></div>
-            ${links.length ? `<div class="links">${links.map(([n, u]) => `<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener nofollow">${n} ↗</a>`).join("")}</div>` : ""}</div></div>
+            <div class="links">${links.map(([n, u]) => `<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener nofollow">${n} ${ICON_OUT}</a>`).join("")}<button class="lbtn" id="shareTok">${ICON_SHARE} Share</button></div></div></div>
         ${meta.description ? `<p class="muted" style="margin:14px 0 0">${esc(meta.description)}</p>` : ""}
       </div>
       <div class="sgrid">
