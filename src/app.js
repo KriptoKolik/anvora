@@ -241,6 +241,39 @@ function renderHeader() {
   const r = location.hash.replace(/^#\/?/, "").split("/")[0];
   document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("on", a.dataset.r === r));
 }
+/* ───────────── sharing ───────────── */
+const SITE_X = (SITE.links?.x || "").match(/x\.com\/([A-Za-z0-9_]+)/)?.[1] || "";
+const pageUrl = (hash) => `${location.origin}${location.pathname}${hash}`;
+// A small sheet: Share on X (prefilled post), the device's own share menu where it exists, Copy link.
+function shareSheet({ title, text, url }) {
+  const x = new URL("https://x.com/intent/post");
+  x.searchParams.set("text", text);
+  x.searchParams.set("url", url);
+  if (SITE_X) x.searchParams.set("via", SITE_X);
+  const canNative = typeof navigator.share === "function";
+  const bg = document.createElement("div");
+  bg.className = "modal-bg";
+  bg.innerHTML = `<div class="modal"><h3>${esc(title)}</h3>
+    <div class="out" style="font-size:14px;white-space:pre-line">${esc(text)}\n<span class="mono" style="word-break:break-all">${esc(url)}</span></div>
+    <a class="btn pri block" href="${esc(x.href)}" target="_blank" rel="noopener">Share on X</a>
+    ${canNative ? `<button class="btn block" data-native>Share via…</button>` : ""}
+    <button class="btn block" data-copy>Copy link</button>
+    <button class="btn block" data-x>Close</button></div>`;
+  bg.onclick = async (e) => {
+    if (e.target === bg || e.target.closest("[data-x]")) return bg.remove();
+    if (e.target.closest("[data-copy]")) {
+      const b = e.target.closest("[data-copy]");
+      try { await navigator.clipboard.writeText(url); b.textContent = "Link copied ✓"; }
+      catch { b.textContent = "Copy failed: long-press the link above"; }
+      return;
+    }
+    if (e.target.closest("[data-native]")) {
+      try { await navigator.share({ title: SITE.name, text, url }); } catch {}
+    }
+  };
+  document.body.appendChild(bg);
+}
+
 const confirmBox = (msg) => { try { return window.confirm(msg); } catch { return true; } };
 
 /* ───────────── transactions ───────────── */
@@ -416,7 +449,7 @@ async function viewExplore(id) {
     <div class="copy">
       <h1>Launch a token. <em>Watch it rise</em> on the curve.</h1>
       <p>${esc(SITE.tagline)}</p>
-      <div class="row"><a class="btn pri" href="#/create">Launch a token</a><button class="btn" id="browse">Browse launches</button></div>
+      <div class="row"><a class="btn pri" href="#/create">Launch a token</a><button class="btn" id="browse">Browse launches</button><button class="btn" id="shareSite" aria-label="Share ${esc(SITE.name)}">Share ↗</button></div>
     </div>
     <div class="plate"><div class="ph"><i></i>Live on GIWA Sepolia</div>
       <div class="stats" id="stats">${[0, 1, 2, 3].map(() => `<div class="stat"><span>&nbsp;</span><b>—</b></div>`).join("")}</div>
@@ -434,6 +467,7 @@ async function viewExplore(id) {
   <div class="grid" id="cards">${Array.from({ length: 6 }, () => `<div class="skel"></div>`).join("")}</div>
   <div id="more" style="text-align:center;margin-top:18px"></div>`;
 
+  $("#shareSite").onclick = () => shareSheet({ title: `Share ${SITE.name}`, text: `${SITE.name}: launch a token on GIWA in one transaction and watch it rise on the bonding curve ⚒️`, url: pageUrl("#/") });
   $("#browse").onclick = () => $("#list").scrollIntoView({ behavior: "smooth" });
   let list;
   try { list = await loadLaunches(); }
@@ -525,6 +559,7 @@ async function viewToken(id, arg) {
     <div class="left">
       <div class="card">
         <div class="thero">${avatar({ meta, symbol: tok.symbol }, "lg")}
+          <button class="btn sm share" id="shareTok" aria-label="Share this token">Share ↗</button>
           <div style="flex:1"><h2>${esc(tok.name)} <span class="muted mono" style="font-size:16px">$${esc(tok.symbol)}</span></h2>
             <div style="margin-top:6px">${statusBadge(st.status)} ${isOfficial(curve, tok.address) ? officialBadge : ""} <span class="muted" style="font-size:13px">Config #${st.configId} · fee ${feePct}%</span></div>
             ${links.length ? `<div class="links">${links.map(([n, u]) => `<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener nofollow">${n} ↗</a>`).join("")}</div>` : ""}</div></div>
@@ -554,6 +589,18 @@ async function viewToken(id, arg) {
     <aside class="card trade" id="trade"></aside>
   </div>`;
 
+  const shareTok = (title) => shareSheet({
+    title,
+    text: st.status === 3 ? `$${tok.symbol} graduated on ${SITE.name} ⚒️ Now trading in its Ammora pool on GIWA 👇`
+      : `$${tok.symbol} is live on ${SITE.name} ⚒️ Trade it on the bonding curve on GIWA 👇`,
+    url: pageUrl(`#/token/${curve}`),
+  });
+  $("#shareTok").onclick = () => shareTok(`Share $${tok.symbol}`);
+  let just = null; try { just = sessionStorage.getItem("anvora.justLaunched"); } catch {}
+  if (just && just.toLowerCase() === curve.toLowerCase()) {
+    try { sessionStorage.removeItem("anvora.justLaunched"); } catch {}
+    shareTok(`🎉 $${tok.symbol} is live! Share it`);
+  }
   if (st.status === 1) tradeBox(ctx, curveEngine(ctx));
   else if (st.status === 2) migrateBox(ctx);
   else if (st.status === 3) tradeBox(ctx, poolEngine(ctx));
@@ -946,6 +993,7 @@ async function viewCreate(id) {
       await runSteps(`Launching ${name}`, steps);
       if (firstBuy > 0n && !atomic) sessionStorage.setItem("anvora.prefillBuy", firstStr);
       toast(`$${esc(symbol)} is live!${atomic ? " Your first buy is in." : firstBuy > 0n ? " Confirm your first buy on the token page." : ""}`, "ok", 9000);
+      try { sessionStorage.setItem("anvora.justLaunched", created.curve); } catch {}
       location.hash = `#/token/${created.curve}`;
     } catch (e) { if (!e.shown) $("#cmsg").innerHTML = `<div class="alert err">${esc(errText(e))}</div>`; }
     finally { btn.disabled = false; }

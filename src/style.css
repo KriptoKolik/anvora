@@ -121,6 +121,8 @@ label.l{display:block;font-size:13px;color:var(--mute);margin:0 0 6px;font-weigh
 .tok .left{display:grid;gap:18px}
 .thero{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
 .thero h2{font-size:30px}
+.thero{position:relative}.thero .share{position:absolute;top:0;right:0}
+.thero > div{padding-right:84px}
 .links{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .links a{font-size:13px;background:var(--panel2);padding:4px 10px;border-radius:7px;color:var(--ink);font-weight:600}
 .sgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
