@@ -321,7 +321,7 @@ a.prow2:hover{text-decoration:none;background:var(--panel2)}
 .tdesc2{margin:14px 0 0}
 .t-grad{display:flex;align-items:center;gap:10px;padding:14px 16px;font-size:13.5px}
 @media (max-width:900px){
-  .tok{display:flex;flex-direction:column;gap:14px}
+  .tok{display:flex;flex-direction:column;gap:14px;align-items:stretch}
   .tok .left{display:contents}
   .tok .left>*{order:3}
   .tok .t-head{order:1}
