@@ -1198,8 +1198,9 @@ const sw = { curve: null, buy: true, slip: SITE.defaultSlippageBps };
 
 async function viewSwap(id, arg) {
   if (arg && isAddress(arg)) sw.curve = getAddress(arg);
+  else if (arg && arg.toLowerCase() === "weth") sw.curve = "WETH";
   app.innerHTML = `<div class="form" style="max-width:520px">
-    <div><h1 style="font-size:40px">Swap</h1><p class="muted" style="margin:10px 0 0">Swap ETH for any token launched on Ammora, and back. Live tokens trade on their bonding curve, graduated tokens in their Ammora pool.</p></div>
+    <div><h1 style="font-size:40px">Swap</h1><p class="muted" style="margin:10px 0 0">Swap ETH for any token launched on Ammora, and back. Live tokens trade on their bonding curve, graduated tokens in their Ammora pool. Pick WETH to wrap or unwrap.</p></div>
     <div class="card swap">
       <div class="sbox"><div class="kv"><span>You pay</span><span id="sbal1"></span></div>
         <div class="srow"><input class="inp samt" id="samt" inputmode="decimal" placeholder="0.0" /><button class="btn asset" id="a1"></button></div>
@@ -1207,10 +1208,10 @@ async function viewSwap(id, arg) {
       <button class="btn flip" id="flip" aria-label="Switch direction">⇅</button>
       <div class="sbox"><div class="kv"><span>You receive</span><span id="sbal2"></span></div>
         <div class="srow"><div class="samt out-amt" id="sout">0.0</div><button class="btn asset" id="a2"></button></div></div>
-      <div><label class="l">Slippage</label><div class="seg" id="sslip">${[50, 100, 300, 500].map((b) => `<button data-b="${b}" class="${b === sw.slip ? "on" : ""}">${b / 100}%</button>`).join("")}</div></div>
+      <div id="sslipwrap"><label class="l">Slippage</label><div class="seg" id="sslip">${[50, 100, 300, 500].map((b) => `<button data-b="${b}" class="${b === sw.slip ? "on" : ""}">${b / 100}%</button>`).join("")}</div></div>
       <div class="out" id="sq"><span class="muted">Choose a token and enter an amount.</span></div>
       <button class="btn pri block" id="sgo" data-wl="Swap">${W.address ? "Swap" : "Connect wallet"}</button>
-      <div class="help">Buys are paid in WETH: missing WETH is wrapped from your ETH automatically. Sells pay out WETH; unwrap it on the <a href="#/wrap">Wrap</a> page.</div>
+      <div class="help">Buys are paid in WETH: missing WETH is wrapped from your ETH automatically. Sells pay out WETH; choose <a href="#/swap/weth" id="toweth">WETH</a> as the token to unwrap it back to ETH.</div>
     </div></div>`;
 
   let list = [];
@@ -1219,7 +1220,10 @@ async function viewSwap(id, arg) {
   if (!sw.curve && list.length) sw.curve = [...list].sort((a, b) => b.raised - a.raised)[0].curve;
 
   let ctx = null, eng = null, bals = null, qn = 0, timer;
+  const isWrap = () => sw.curve === "WETH";
+  const wethLabel = `<span class="avatar sm eth">W</span><b>WETH</b><span>▾</span>`;
   const tokLabel = () => {
+    if (isWrap()) return wethLabel;
     const x = list.find((y) => y.curve === sw.curve);
     if (!ctx && !x) return `<b>Select token</b><span>▾</span>`;
     const sym = ctx?.tok.symbol || x?.symbol || "?";
@@ -1234,7 +1238,7 @@ async function viewSwap(id, arg) {
   };
   const showBal = () => {
     if (!bals || !ctx) { $("#sbal1").textContent = ""; $("#sbal2").textContent = ""; return; }
-    const ethTxt = `${fu(bals.eth, 18)} ETH + ${fu(bals.weth, 18)} WETH`, tokTxt = `${fu(bals.tk, ctx.tok.decimals)} ${ctx.tok.symbol}`;
+    const ethTxt = isWrap() ? `${fu(bals.eth, 18)} ETH` : `${fu(bals.eth, 18)} ETH + ${fu(bals.weth, 18)} WETH`, tokTxt = `${fu(bals.tk, ctx.tok.decimals)} ${ctx.tok.symbol}`;
     $("#sbal1").textContent = sw.buy ? ethTxt : tokTxt;
     $("#sbal2").textContent = sw.buy ? tokTxt : ethTxt;
     $("#squick").innerHTML = sw.buy ? ["0.001", "0.005", "0.01"].map((v) => `<button class="btn sm" data-v="${v}">${v}</button>`).join("")
@@ -1251,6 +1255,20 @@ async function viewSwap(id, arg) {
   };
   const select = async (curve) => {
     sw.curve = curve; ctx = null; eng = null;
+    $("#sslipwrap").hidden = curve === "WETH";
+    if (curve === "WETH") {
+      // ETH ⇄ WETH is a 1:1 wrap on the WETH contract: no pool, no fee, no slippage.
+      ctx = { tok: { address: WETH, symbol: "WETH", decimals: 18 }, st: { status: "wrap" } };
+      eng = {
+        quote: async (side, amt) => ({ amountOut: amt, fee: 0n }),
+        steps: async (side, amt) => [side === "buy"
+          ? { label: `Wrap ${fu(amt, 18, 6)} ETH → WETH`, run: () => sendTx(wrapTx(amt), "Wrap") }
+          : { label: `Unwrap ${fu(amt, 18, 6)} WETH → ETH`, run: () => sendTx(unwrapTx(amt), "Unwrap") }],
+      };
+      if (history.replaceState) history.replaceState(null, "", "#/swap/weth");
+      paint(); loadBals(); requote();
+      return;
+    }
     paint();
     $("#sq").innerHTML = `<span class="muted">Loading token…</span>`;
     try {
@@ -1279,7 +1297,13 @@ async function viewSwap(id, arg) {
         const side = sw.buy ? "buy" : "sell";
         const q = await eng.quote(side, amt, sw.slip);
         if (n !== qn) return;
-        const outDec = sw.buy ? ctx.tok.decimals : 18, outSym = sw.buy ? ctx.tok.symbol : "WETH";
+        const outDec = sw.buy ? ctx.tok.decimals : 18, outSym = sw.buy ? ctx.tok.symbol : isWrap() ? "ETH" : "WETH";
+        if (isWrap()) {
+          $("#sout").textContent = fu(q.amountOut, 18, 6);
+          $("#sq").innerHTML = `<div class="kv"><span>Route</span><b>${sw.buy ? "Wrap (WETH contract)" : "Unwrap (WETH contract)"}</b></div>
+            <div class="kv"><span>You receive</span><b>${fu(q.amountOut, 18, 6)} ${outSym}</b></div><div class="kv"><span>Fee</span><b>None, 1:1</b></div>`;
+          return;
+        }
         const min = q.amountOut * BigInt(10_000 - sw.slip) / 10_000n;
         $("#sout").textContent = fu(q.amountOut, outDec, 6);
         $("#sq").innerHTML = `<div class="kv"><span>Route</span><b>${ctx.st.status === 1 ? "Bonding curve" : "Ammora pool"}</b></div>
@@ -1297,8 +1321,9 @@ async function viewSwap(id, arg) {
       const q = $("#pq", bg).value.trim().toLowerCase();
       const rows = list.filter((x) => !q || [x.name, x.symbol, x.token, x.curve].some((v) => String(v || "").toLowerCase().includes(q)))
         .filter((x) => q || (!x.junk && !x.test)).sort((a, b) => b.raised - a.raised).slice(0, 60);
-      $("#pl", bg).innerHTML = rows.length ? rows.map((x) => `<button class="prow" data-c="${x.curve}">${avatar(x, "sm")}<span><b>${esc(x.name || "Unnamed")}</b><em>$${esc(x.symbol || "?")}</em></span>${statusBadge(x.status)}</button>`).join("")
-        : `<div class="muted" style="padding:12px">No tokens match.</div>`;
+      const wrow = !q || "weth wrapped ether eth".includes(q) ? `<button class="prow" data-c="WETH"><span class="avatar sm eth">W</span><span><b>Wrapped Ether</b><em>WETH · wrap / unwrap</em></span></button>` : "";
+      $("#pl", bg).innerHTML = wrow + (rows.length ? rows.map((x) => `<button class="prow" data-c="${x.curve}">${avatar(x, "sm")}<span><b>${esc(x.name || "Unnamed")}</b><em>$${esc(x.symbol || "?")}</em></span>${statusBadge(x.status)}</button>`).join("")
+        : wrow ? "" : `<div class="muted" style="padding:12px">No tokens match.</div>`);
     };
     bg.onclick = (e) => {
       const r = e.target.closest(".prow");
@@ -1310,6 +1335,7 @@ async function viewSwap(id, arg) {
     draw();
   };
   $("#a1").onclick = pick; $("#a2").onclick = pick;
+  $("#toweth").onclick = (e) => { e.preventDefault(); sw.buy = false; $("#samt").value = ""; select("WETH"); window.scrollTo({ top: 0, behavior: "smooth" }); };
   $("#flip").onclick = () => { sw.buy = !sw.buy; $("#samt").value = ""; $("#sout").textContent = "0.0"; paint(); requote(); };
   $("#samt").oninput = requote;
   $("#squick").onclick = (e) => {
@@ -1328,8 +1354,8 @@ async function viewSwap(id, arg) {
       if (amt <= 0n) throw new Error("Enter an amount.");
       go.disabled = true;
       const side = sw.buy ? "buy" : "sell";
-      await runSteps(sw.buy ? `Buying $${ctx.tok.symbol}` : `Selling $${ctx.tok.symbol}`, await eng.steps(side, amt, sw.slip));
-      toast("Swap complete.", "ok");
+      await runSteps(isWrap() ? (sw.buy ? "Wrapping ETH" : "Unwrapping WETH") : sw.buy ? `Buying $${ctx.tok.symbol}` : `Selling $${ctx.tok.symbol}`, await eng.steps(side, amt, sw.slip));
+      toast(isWrap() ? (sw.buy ? "Wrapped." : "Unwrapped to ETH.") : "Swap complete.", "ok");
       $("#samt").value = ""; $("#sout").textContent = "0.0";
       loadBals(); requote();
     } catch (e) { if (!e.shown) toast(esc(errText(e)), "err", 9000); }
