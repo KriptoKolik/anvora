@@ -10,7 +10,7 @@ export const SITE = {
   // 1. Deploy the site, open #/setup, connect your wallet and create the Config.
   // 2. Paste the new Config ID here (keep the trailing n), rebuild and redeploy.
   // Until then the site uses the ID saved in your own browser by #/setup.
-  launchConfigId: 96n, // created on #/setup by the owner wallet (GIWA Sepolia)
+  launchConfigId: 108n, // created on #/setup by the owner wallet (GIWA Sepolia): 0.25 WETH graduation target
 
   // Earlier Configs of this site. Their launches still count as "On Anvora" (filter, counter).
   previousConfigIds: [96n], // #96: 0.05 WETH graduation target (Nov 2026)

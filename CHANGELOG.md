@@ -14,6 +14,7 @@
 - **Quick buy amounts**: 0.1 and Max (all WETH + ETH, keeping a little ETH for gas).
 - **Token page on mobile**: the Buy/Sell box now sits right under the token header; compact header and stats; graduated tokens show a single "Graduated" line instead of an empty curve.
 - **Locked liquidity shown**: graduated pool positions are marked 🔒 Locked forever (liquidity can never be pulled, fees stay claimable); empty leftover positions are hidden.
+- **New launch Config #108**: new tokens now graduate at 0.25 WETH (was 0.05), so one buyer can't fill the whole curve at once. Earlier Anvora launches (Config #96) still count as On Anvora.
 - **$ANVORA graduated** into a permanent Ammora pool; pool buys and sells verified on-chain.
 
 ## Earlier
