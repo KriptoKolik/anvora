@@ -1274,7 +1274,11 @@ async function positionsCard(id, me) {
       let fees = null;
       try { fees = (await pc.simulateContract({ address: PM(), abi: pmAbi(), functionName: "claimPositionFees", args: [tokenId, me], account: me })).result; } catch {}
       const launch = pos && launches.find((x) => x.pool && x.pool.toLowerCase() === String(pos.pool).toLowerCase());
-      return { tokenId, launch, fees };
+      // Liquidity split: unlocked (withdrawable), vesting, and permanently locked (never withdrawable; fees still claimable).
+      const big = (v) => { try { return BigInt(v ?? 0); } catch { return 0n; } };
+      const liq = { unlocked: big(pos?.unlockedLiquidity), vested: big(pos?.vestedLiquidity), locked: big(pos?.permanentLockedLiquidity) };
+      const dust = liq.unlocked + liq.vested + liq.locked < 1_000_000n && !(fees && (fees[0] > 0n || fees[1] > 0n));
+      return dust ? null : { tokenId, launch, fees, liq };
     }))).filter(Boolean);
   } catch (e) { if (psum) { psum.lp = 0n; psumFees(); } if (id === renderId && box()) box().innerHTML = `<div class="earn-k">Pool fees</div><div class="muted">Positions could not be read right now. ${esc(errText(e))}</div>`; return; }
   if (id !== renderId || !box()) return;
@@ -1282,11 +1286,11 @@ async function positionsCard(id, me) {
   if (psum) { psum.lp = rows.reduce((a, r) => a + (r.fees?.[1] || 0n), 0n); psum.cl = rows.filter(has).length; psumFees(); }
   box().innerHTML = `<div class="earn-k">Pool fees</div>
     ${rows.length ? `<div class="earn-list">${rows.map((r, i) => `<div class="earn-row">
-        <div><b>${r.launch ? "$" + esc(r.launch.symbol) : "Position"}</b> <span class="muted mono">#${r.tokenId}</span>
+        <div><b>${r.launch ? "$" + esc(r.launch.symbol) : "Position"}</b> <span class="muted mono">#${r.tokenId}</span>${r.liq?.locked > 0n && !r.liq.unlocked ? ` <span class="lockt" title="This liquidity is locked in the pool forever. It can never be withdrawn, but its trading fees are yours to claim.">🔒 Locked forever</span>` : r.liq?.vested > 0n ? ` <span class="lockt">Vesting</span>` : ""}
           <div class="muted" style="font-size:12.5px">${r.fees ? `${fu(r.fees[0], r.launch?.decimals ?? 18)} ${esc(r.launch?.symbol || "token")} + ${fu(r.fees[1], 18, 6)} WETH` : "Fees unavailable"}</div></div>
         <button class="btn ${has(r) ? "pri" : ""}" data-p="${i}" ${has(r) ? "" : "disabled"}>${has(r) ? "Claim" : "—"}</button></div>`).join("")}</div>`
       : `<div class="earn-v">0 <small>positions</small></div>`}
-    <div class="muted earn-d">When one of your tokens graduates, its pool position earns a fee on every pool trade. Each position is claimed separately.</div>
+    <div class="muted earn-d">When one of your tokens graduates, its pool position earns a fee on every pool trade. Each position is claimed separately. Graduation liquidity is locked in the pool forever, so it can't be withdrawn, but its fees keep coming.</div>
     ${rows.filter(has).length > 1 ? `<button class="btn pri block" id="pclaimall">Claim all (${rows.filter(has).length} positions)</button>` : ""}`;
   const claim = async (list) => {
     try {
