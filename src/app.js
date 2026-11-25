@@ -163,6 +163,8 @@ const OVERRIDES = Object.fromEntries(Object.entries(SITE.metadataOverrides || {}
 const withOverrides = (curve, meta) => ({ ...(meta || {}), ...(OVERRIDES[String(curve || "").toLowerCase()] || {}) });
 const OFFICIAL = new Set((SITE.officialTokens || []).map((x) => String(x).toLowerCase()));
 const isOfficial = (...addrs) => addrs.some((a) => a && OFFICIAL.has(String(a).toLowerCase()));
+const LABELS = new Map(Object.entries(SITE.tokenLabels || {}).map(([k, v]) => [k.toLowerCase(), v]));
+const verTag = (...addrs) => { const a = addrs.find((x) => x && LABELS.has(String(x).toLowerCase())); return a ? ` <span class="vtag">${esc(LABELS.get(String(a).toLowerCase()))}</span>` : ""; };
 const officialBadge = `<span class="badge b-official" title="The official ${esc(SITE.name)} token">✓ Official</span>`;
 // "New" for launches from the last 24 hours (only when the launch time is known).
 const isNew = (x) => !!x.time && Date.now() / 1000 - x.time < 86_400;
@@ -560,7 +562,7 @@ async function viewExplore(id) {
 }
 const card = (x) => `
   <a class="card tcard" href="#/token/${x.curve}">
-    <div class="thead">${avatar(x)}<div style="flex:1;min-width:0"><b>${esc(x.name || x.meta?.name || "Unnamed")}</b><span class="muted mono">$${esc(x.symbol || "?")}</span></div><div class="tbadges">${isNew(x) ? newBadge : ""}${statusBadge(x.status)}${isOfficial(x.curve, x.token) ? officialBadge : ""}</div></div>
+    <div class="thead">${avatar(x)}<div style="flex:1;min-width:0"><b>${esc(x.name || x.meta?.name || "Unnamed")}${verTag(x.curve, x.token)}</b><span class="muted mono">$${esc(x.symbol || "?")}</span></div><div class="tbadges">${isNew(x) ? newBadge : ""}${statusBadge(x.status)}${isOfficial(x.curve, x.token) ? officialBadge : ""}</div></div>
     ${x.meta?.description ? `<div class="muted tdesc">${esc(x.meta.description)}</div>` : ""}
     <div class="tnums"><div><span>Market cap</span><b>${x.junk ? "—" : `${fmt(x.mcap)} ETH`}</b></div><div><span>Raised</span><b>${fmt(x.raised)} WETH</b></div></div>
     <div class="tprog"><div class="bar"><i style="width:${(x.progress * 100).toFixed(1)}%"></i></div><b>${(x.progress * 100).toFixed(x.progress >= 1 ? 0 : 1)}%</b></div>
@@ -611,7 +613,7 @@ async function viewToken(id, arg) {
     <div class="left">
       <div class="card t-head">
         <div class="thero">${avatar({ meta, symbol: tok.symbol }, "lg")}
-          <div style="flex:1;min-width:0"><h2>${esc(tok.name)} <span class="muted mono" style="font-size:16px">$${esc(tok.symbol)}</span></h2>
+          <div style="flex:1;min-width:0"><h2>${esc(tok.name)}${verTag(curve, tok.address)} <span class="muted mono" style="font-size:16px">$${esc(tok.symbol)}</span></h2>
             <div style="margin-top:6px">${statusBadge(st.status)} ${isOfficial(curve, tok.address) ? officialBadge : ""} <span class="muted" style="font-size:13px">Config #${st.configId} · fee ${feePct}%</span></div>
             <div class="links">${links.map(([n, u]) => `<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener nofollow">${n} ${ICON_OUT}</a>`).join("")}<button class="lbtn" id="shareTok">${ICON_SHARE} Share</button></div></div></div>
         ${meta.description ? `<p class="muted tdesc2">${esc(meta.description)}</p>` : ""}
@@ -1174,7 +1176,7 @@ async function portfolioHoldings(id, me, list) {
     $("#pwallet").innerHTML = `Wallet <b>${fu(eth, 18, 5)}</b> ETH · <b>${fu(weth, 18, 5)}</b> WETH${weth > 0n ? ` · <a href="#/swap/weth">Unwrap</a>` : ""}`;
     $("#phold").innerHTML = held.length ? `<div class="plist2">${held.map((h) => `
       <a class="prow2" href="#/token/${h.x.curve}">${avatar(h.x, "sm")}
-        <div class="pr-main"><b>${esc(h.x.name || "Unnamed")}</b><span class="muted">${fmt(h.amount)} $${esc(h.x.symbol || "?")}</span></div>
+        <div class="pr-main"><b>${esc(h.x.name || "Unnamed")}${verTag(h.x.curve, h.x.token)}</b><span class="muted">${fmt(h.amount)} $${esc(h.x.symbol || "?")}</span></div>
         <div class="pr-side"><b>${h.value ? fmt(h.value) + " ETH" : "—"}</b>${statusBadge(h.x.status)}</div></a>`).join("")}</div>`
       : `<div class="pempty">You don't hold any launch tokens yet. <a href="#/">Explore launches</a></div>`;
   } catch (e) { if (id === renderId) { $("#phold").innerHTML = `<div class="muted">Holdings could not be read right now. ${esc(errText(e))}</div>`; psumSet("hold", "—"); } }
@@ -1185,7 +1187,7 @@ function portfolioLaunches(id, me, list) {
   psumSet("launched", String(mine.length), mine.length);
   $("#plaunch").innerHTML = mine.length ? `<div class="plist2">${mine.map((x) => `
     <a class="prow2" href="#/token/${x.curve}">${avatar(x, "sm")}
-      <div class="pr-main"><b>${esc(x.name || "Unnamed")}</b><span class="muted">$${esc(x.symbol || "?")} · ${x.time ? ago(x.time) : "block " + x.block}</span></div>
+      <div class="pr-main"><b>${esc(x.name || "Unnamed")}${verTag(x.curve, x.token)}</b><span class="muted">$${esc(x.symbol || "?")} · ${x.time ? ago(x.time) : "block " + x.block}</span></div>
       <div class="pr-side"><b>${fmt(x.raised)} WETH</b>${x.status === 1 ? `<span class="muted" style="font-size:12px">${(x.progress * 100).toFixed(1)}% to graduation</span>` : statusBadge(x.status)}</div></a>`).join("")}</div>`
     : `<div class="pempty">You haven't launched a token yet. <a href="#/create">Launch one</a></div>`;
 }
@@ -1441,7 +1443,7 @@ async function viewSwap(id, arg) {
       const rows = list.filter((x) => !q || [x.name, x.symbol, x.token, x.curve].some((v) => String(v || "").toLowerCase().includes(q)))
         .filter((x) => q || (!x.junk && !x.test)).sort((a, b) => b.raised - a.raised).slice(0, 60);
       const wrow = !q || "weth wrapped ether eth".includes(q) ? `<button class="prow" data-c="WETH"><span class="avatar sm eth">W</span><span><b>Wrapped Ether</b><em>WETH · wrap / unwrap</em></span></button>` : "";
-      $("#pl", bg).innerHTML = wrow + (rows.length ? rows.map((x) => `<button class="prow" data-c="${x.curve}">${avatar(x, "sm")}<span><b>${esc(x.name || "Unnamed")}</b><em>$${esc(x.symbol || "?")}</em></span>${statusBadge(x.status)}</button>`).join("")
+      $("#pl", bg).innerHTML = wrow + (rows.length ? rows.map((x) => `<button class="prow" data-c="${x.curve}">${avatar(x, "sm")}<span><b>${esc(x.name || "Unnamed")}${verTag(x.curve, x.token)}</b><em>$${esc(x.symbol || "?")}</em></span>${statusBadge(x.status)}</button>`).join("")
         : wrow ? "" : `<div class="muted" style="padding:12px">No tokens match.</div>`);
     };
     bg.onclick = (e) => {

@@ -24,8 +24,13 @@ export const SITE = {
 
   // Official launches: shown with an "Official" badge and pinned to the top of Explore.
   officialTokens: [
-    "0x39F9819744EE83f337aab7269e14B06a1922E5D5", // $ANVORA, the official Anvora token
+    // the new official $ANVORA goes here once launched
   ],
+
+  // Small version tags shown next to a token's name (curve or token address → label).
+  tokenLabels: {
+    "0x39F9819744EE83f337aab7269e14B06a1922E5D5": "v1", // first $ANVORA (Config #96, graduated)
+  },
 
   // Corrections for on-chain metadata, keyed by curve address. On-chain metadata can't be
   // edited, so this site shows these values instead (other sites still show the on-chain ones).
