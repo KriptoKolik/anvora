@@ -795,7 +795,7 @@ function tradeBox(ctx, eng) {
   sessionStorage.removeItem("anvora.prefillBuy");
   const t = { side: "buy", slip: SITE.defaultSlippageBps };
   $("#trade").innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h3>${esc(eng.title)}</h3><a href="#/swap/${ctx.curve}" style="font-size:13px;white-space:nowrap">Open in Swap</a></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h3 style="min-width:0">${esc(eng.title)}</h3><a href="#/swap/${ctx.curve}" style="font-size:13px;white-space:nowrap;flex-shrink:0">Open in Swap</a></div>
     <div class="seg trade" id="side"><button class="on buy" data-s="buy">Buy</button><button class="sell" data-s="sell">Sell</button></div>
     <div><label class="l" id="amtl">You pay (ETH)</label><input class="inp" id="amt" inputmode="decimal" placeholder="0.0" value="${esc(prefill)}" />
       <div class="help" id="bal">&nbsp;</div><div style="display:flex;gap:6px;margin-top:8px" id="quick"></div></div>
