@@ -594,18 +594,19 @@ async function load24h(list) {
     ...poolTopics.map((t) => explorerLogs({ topic0: t, fromBlock }).catch(() => [])),
   ]);
   if (!curveLogs.length && !poolLogs.flat().length) {
-    const head = await pc.getBlockNumber();
-    const [hb, ob] = await Promise.all([pc.getBlock({ blockNumber: head }), pc.getBlock({ blockNumber: head - 10_000n })]);
-    const spb = Math.max(0.2, Number(hb.timestamp - ob.timestamp) / 10_000); // seconds per block
-    const start = BigInt(Math.max(Number(head) - Math.ceil(86_400 / spb), FACTORY_START));
-    const tsOf = (bn) => Number(hb.timestamp) - Math.round(Number(head - BigInt(bn)) * spb);
-    const windows = [];
-    for (let to = head; to >= start; to -= 10_000n) windows.push([to - 9_999n < start ? start : to - 9_999n, to]);
-    const got = await Promise.all(windows.map(([f, t]) => pc.getLogs({ events: [SWAP_EVENT, ...POOL_SWAP_EVENTS], fromBlock: f, toBlock: t }).catch(() => [])));
-    const all = got.flat().map((l) => ({ address: l.address, data: l.data, topics: l.topics, timeStamp: tsOf(l.blockNumber) }));
-    const sw = SWAP_TOPIC.toLowerCase();
-    curveLogs = all.filter((l) => String(l.topics[0]).toLowerCase() === sw);
-    poolLogs = [all.filter((l) => String(l.topics[0]).toLowerCase() !== sw)];
+    // Fallback: per-address queries (the same proven path as a token's Recent trades) for the tokens most likely
+    // to be active: this site's launches, live tokens and anything launched in the last 14 days, capped.
+    const recent = Date.now() / 1000 - 14 * 86_400;
+    const cands = list.filter((x) => isOfficial(x.curve, x.token) || isSiteLaunch(x) || x.status === 1 || (x.time && x.time > recent))
+      .sort((p, q) => (q.time || 0) - (p.time || 0)).slice(0, 48);
+    const jobs = [];
+    for (const x of cands) {
+      jobs.push(() => explorerLogs({ address: x.curve, topic0: SWAP_TOPIC, fromBlock }).then((r) => curveLogs.push(...r)).catch(() => {}));
+      if (x.pool && x.pool !== zeroAddress) jobs.push(() => explorerLogs({ address: x.pool, fromBlock }).then((r) => poolLogs.push(r)).catch(() => {}));
+    }
+    // small concurrency so the explorer isn't flooded
+    let k = 0;
+    await Promise.all(Array.from({ length: 6 }, async () => { while (k < jobs.length) await jobs[k++](); }));
   }
   for (const l of curveLogs) {
     const x = byCurve.get(String(l.address).toLowerCase()); if (!x) continue;
