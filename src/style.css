@@ -325,7 +325,7 @@ a.prow2:hover{text-decoration:none;background:var(--panel2)}
   .tok .left{display:contents}
   .tok .left>*{order:3}
   .tok .t-head{order:1}
-  .tok .trade{order:2}
+  .tok>aside.trade{order:2}
 }
 @media (max-width:600px){
   .t-head{padding:14px 16px}
