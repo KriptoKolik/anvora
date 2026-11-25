@@ -252,3 +252,5 @@ th{color:var(--mute);font-weight:600}td.r,th.r{text-align:right;white-space:nowr
 .wopt{justify-content:flex-start;gap:12px;min-height:52px}
 .wopt img,.wopt .wl{width:28px;height:28px;border-radius:7px;flex:none;object-fit:contain}
 .wopt .wl{display:grid;place-items:center;background:var(--panel2);font-weight:800}
+
+[hidden]{display:none!important}
