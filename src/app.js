@@ -535,13 +535,11 @@ async function viewExplore(id) {
 }
 const card = (x) => `
   <a class="card tcard" href="#/token/${x.curve}">
-    <div class="thead">${avatar(x)}<div style="flex:1"><b>${esc(x.name || x.meta?.name || "Unnamed")}</b><span class="muted mono">$${esc(x.symbol || "?")}</span></div><div style="display:grid;gap:4px;justify-items:end">${statusBadge(x.status)}${isOfficial(x.curve, x.token) ? officialBadge : ""}</div></div>
-    ${x.meta?.description ? `<div class="muted" style="font-size:13px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc(x.meta.description)}</div>` : ""}
-    <div class="kv"><span>Market cap</span><b>${x.junk ? "—" : `${fmt(x.mcap)} ETH`}</b></div>
-    <div class="kv"><span>Raised</span><b>${fmt(x.raised)} WETH</b></div>
-    <div class="kv"><span>Graduation</span><b>${(x.progress * 100).toFixed(1)}%</b></div>
-    <div class="bar"><i style="width:${(x.progress * 100).toFixed(1)}%"></i></div>
-    <div class="kv"><span>Creator ${short(x.creator)}</span><span>${x.time ? ago(x.time) : `block ${x.block}`}</span></div>
+    <div class="thead">${avatar(x)}<div style="flex:1;min-width:0"><b>${esc(x.name || x.meta?.name || "Unnamed")}</b><span class="muted mono">$${esc(x.symbol || "?")}</span></div><div class="tbadges">${statusBadge(x.status)}${isOfficial(x.curve, x.token) ? officialBadge : ""}</div></div>
+    ${x.meta?.description ? `<div class="muted tdesc">${esc(x.meta.description)}</div>` : ""}
+    <div class="tnums"><div><span>Market cap</span><b>${x.junk ? "—" : `${fmt(x.mcap)} ETH`}</b></div><div><span>Raised</span><b>${fmt(x.raised)} WETH</b></div></div>
+    <div class="tprog"><div class="bar"><i style="width:${(x.progress * 100).toFixed(1)}%"></i></div><b>${(x.progress * 100).toFixed(x.progress >= 1 ? 0 : 1)}%</b></div>
+    <div class="kv tfoot"><span>Creator ${short(x.creator)}</span><span>${x.time ? ago(x.time) : `block ${x.block}`}</span></div>
   </a>`;
 
 /* ───────────── view: token ───────────── */
