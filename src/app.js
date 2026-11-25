@@ -1515,7 +1515,7 @@ async function switchTo(hexId, add) {
 async function viewBridge(id) {
   app.innerHTML = `<div class="form" style="max-width:540px">
     <div><h1 style="font-size:40px">Bridge</h1><p class="muted" style="margin:10px 0 0">Move ETH from Ethereum Sepolia to GIWA Sepolia to start launching and trading. Deposits arrive in a few minutes.</p></div>
-    <div class="seg bseg" id="btabs"><button data-t="in" class="${bridgeTab === "in" ? "on" : ""}">Deposit to GIWA</button><button data-t="out" class="${bridgeTab === "out" ? "on" : ""}">Withdraw to Ethereum</button></div>
+    <div class="seg bseg" id="btabs"><button data-t="in" class="${bridgeTab === "in" ? "on" : ""}">Deposit</button><button data-t="out" class="${bridgeTab === "out" ? "on" : ""}">Withdraw</button></div>
     <div id="bbody"></div></div>`;
   $("#btabs").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; bridgeTab = b.dataset.t; $("#btabs").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); draw(); };
   const draw = () => (bridgeTab === "in" ? depositView(id) : withdrawView());
@@ -1538,7 +1538,7 @@ function depositView(id) {
     <div class="flip" style="cursor:default">↓</div>
     <div class="sbox"><div class="kv"><span>To <b>GIWA Sepolia</b></span><span id="b2"></span></div>
       <div class="srow"><div class="samt out-amt" id="bout">0.0</div><span class="btn asset" style="cursor:default"><span class="avatar sm eth">Ξ</span><b>ETH</b></span></div></div>
-    <div class="out" id="bq"><div class="kv"><span>Route</span><b>GIWA OptimismPortal (official OP Stack bridge)</b></div><div class="kv"><span>Arrives in</span><b>~1–3 minutes</b></div><div class="kv"><span>Bridge fee</span><b>None, only Sepolia gas</b></div></div>
+    <div class="out" id="bq"><div class="kv"><span>Route</span><b>Official GIWA portal</b></div><div class="kv"><span>Arrives in</span><b>~1–3 minutes</b></div><div class="kv"><span>Bridge fee</span><b>None, only Sepolia gas</b></div></div>
     <button class="btn pri block" id="bgo" data-wl="Bridge to GIWA">${W.address ? "Bridge to GIWA" : "Connect wallet"}</button>
     <div class="help">Your wallet switches to Ethereum Sepolia to sign the deposit, then back to GIWA. Need Sepolia ETH? Try the <a href="https://cloud.google.com/application/web3/faucet/ethereum/sepolia" target="_blank" rel="noopener">Sepolia faucet</a>. Withdrawing back takes ~7 days, see the other tab.</div>
   </div>`;
