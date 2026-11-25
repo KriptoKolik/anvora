@@ -812,7 +812,7 @@ function tradeBox(ctx, eng) {
   const showBal = () => {
     if (!bals) return;
     $("#bal").innerHTML = t.side === "buy" ? `Balance: ${fu(bals.eth, 18)} ETH + ${fu(bals.weth, 18)} WETH` : `Balance: ${fu(bals.tk, ctx.tok.decimals)} ${esc(ctx.tok.symbol)}`;
-    $("#quick").innerHTML = t.side === "buy" ? ["0.001", "0.005", "0.01"].map((v) => `<button class="btn sm" data-v="${v}">${v}</button>`).join("")
+    $("#quick").innerHTML = t.side === "buy" ? ["0.001", "0.005", "0.01", "0.1"].map((v) => `<button class="btn sm" data-v="${v}">${v}</button>`).join("")
       : [25, 50, 100].map((p) => `<button class="btn sm" data-p="${p}">${p}%</button>`).join("");
   };
   $("#quick").onclick = (e) => {
@@ -1347,7 +1347,7 @@ async function viewSwap(id, arg) {
     const ethTxt = isWrap() ? `${fu(bals.eth, 18)} ETH` : `${fu(bals.eth, 18)} ETH + ${fu(bals.weth, 18)} WETH`, tokTxt = `${fu(bals.tk, ctx.tok.decimals)} ${ctx.tok.symbol}`;
     $("#sbal1").textContent = sw.buy ? ethTxt : tokTxt;
     $("#sbal2").textContent = sw.buy ? tokTxt : ethTxt;
-    $("#squick").innerHTML = sw.buy ? ["0.001", "0.005", "0.01"].map((v) => `<button class="btn sm" data-v="${v}">${v}</button>`).join("")
+    $("#squick").innerHTML = sw.buy ? ["0.001", "0.005", "0.01", "0.1"].map((v) => `<button class="btn sm" data-v="${v}">${v}</button>`).join("")
       : [25, 50, 100].map((v) => `<button class="btn sm" data-p="${v}">${v}%</button>`).join("");
   };
   const loadBals = async () => {
