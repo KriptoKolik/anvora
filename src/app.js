@@ -161,6 +161,9 @@ const withOverrides = (curve, meta) => ({ ...(meta || {}), ...(OVERRIDES[String(
 const OFFICIAL = new Set((SITE.officialTokens || []).map((x) => String(x).toLowerCase()));
 const isOfficial = (...addrs) => addrs.some((a) => a && OFFICIAL.has(String(a).toLowerCase()));
 const officialBadge = `<span class="badge b-official" title="The official ${esc(SITE.name)} token">✓ Official</span>`;
+// "New" for launches from the last 24 hours (only when the launch time is known).
+const isNew = (x) => !!x.time && Date.now() / 1000 - x.time < 86_400;
+const newBadge = `<span class="badge b-new" title="Launched in the last 24 hours">New</span>`;
 const statusBadge = (s) => (s === 1 ? `<span class="badge b-live">Live</span>`
   : s === 2 ? `<span class="badge b-ready">Ready to graduate</span>`
   : s === 3 ? `<span class="badge b-grad">Graduated</span>` : `<span class="badge b-off">Inactive</span>`);
@@ -535,7 +538,7 @@ async function viewExplore(id) {
 }
 const card = (x) => `
   <a class="card tcard" href="#/token/${x.curve}">
-    <div class="thead">${avatar(x)}<div style="flex:1;min-width:0"><b>${esc(x.name || x.meta?.name || "Unnamed")}</b><span class="muted mono">$${esc(x.symbol || "?")}</span></div><div class="tbadges">${statusBadge(x.status)}${isOfficial(x.curve, x.token) ? officialBadge : ""}</div></div>
+    <div class="thead">${avatar(x)}<div style="flex:1;min-width:0"><b>${esc(x.name || x.meta?.name || "Unnamed")}</b><span class="muted mono">$${esc(x.symbol || "?")}</span></div><div class="tbadges">${isNew(x) ? newBadge : ""}${statusBadge(x.status)}${isOfficial(x.curve, x.token) ? officialBadge : ""}</div></div>
     ${x.meta?.description ? `<div class="muted tdesc">${esc(x.meta.description)}</div>` : ""}
     <div class="tnums"><div><span>Market cap</span><b>${x.junk ? "—" : `${fmt(x.mcap)} ETH`}</b></div><div><span>Raised</span><b>${fmt(x.raised)} WETH</b></div></div>
     <div class="tprog"><div class="bar"><i style="width:${(x.progress * 100).toFixed(1)}%"></i></div><b>${(x.progress * 100).toFixed(x.progress >= 1 ? 0 : 1)}%</b></div>
