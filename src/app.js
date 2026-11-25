@@ -1146,18 +1146,20 @@ async function positionsCard(id, me) {
           <div class="muted" style="font-size:12.5px">${r.fees ? `${fu(r.fees[0], r.launch?.decimals ?? 18)} ${esc(r.launch?.symbol || "token")} + ${fu(r.fees[1], 18, 6)} WETH` : "Fees unavailable"}</div></div>
         <button class="btn ${has(r) ? "pri" : ""}" data-p="${i}" ${has(r) ? "" : "disabled"}>${has(r) ? "Claim" : "—"}</button></div>`).join("")}</div>`
       : `<div class="earn-v">0 <small>positions</small></div>`}
-    <div class="muted earn-d">When one of your tokens graduates, its pool position earns a fee on every pool trade.</div>`;
-  box().querySelectorAll("[data-p]").forEach((b) => (b.onclick = async () => {
-    const r = rows[Number(b.dataset.p)];
+    <div class="muted earn-d">When one of your tokens graduates, its pool position earns a fee on every pool trade. Each position is claimed separately.</div>
+    ${rows.filter(has).length > 1 ? `<button class="btn pri block" id="pclaimall">Claim all (${rows.filter(has).length} positions)</button>` : ""}`;
+  const claim = async (list) => {
     try {
       await ensureWallet();
       if (getAddress(W.address) !== me) throw new Error("Switch back to the wallet this portfolio belongs to.");
-      const data = encodeFunctionData({ abi: pmAbi(), functionName: "claimPositionFees", args: [r.tokenId, me] });
-      await runSteps("Claiming pool fees", [{ label: `Claim fees of position #${r.tokenId}`, run: () => sendTx({ to: PM(), data }, "Pool fee claim") }]);
+      await runSteps("Claiming pool fees", list.map((r) => ({ label: `Claim fees of ${r.launch ? "$" + r.launch.symbol + " " : ""}position #${r.tokenId}`,
+        run: () => sendTx({ to: PM(), data: encodeFunctionData({ abi: pmAbi(), functionName: "claimPositionFees", args: [r.tokenId, me] }) }, "Pool fee claim") })));
       toast("Pool fees claimed.", "ok", 6000);
-      setTimeout(() => positionsCard(id, me), 2500);
     } catch (e) { if (!e.shown) toast(esc(errText(e)), "err", 9000); }
-  }));
+    setTimeout(() => positionsCard(id, me), 2500);
+  };
+  box().querySelectorAll("[data-p]").forEach((b) => (b.onclick = () => claim([rows[Number(b.dataset.p)]])));
+  const all = $("#pclaimall"); if (all) all.onclick = () => claim(rows.filter(has));
 }
 
 /* ───────────── view: swap ───────────── */
