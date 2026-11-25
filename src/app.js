@@ -606,24 +606,25 @@ async function viewToken(id, arg) {
   app.innerHTML = `
   <div class="tok">
     <div class="left">
-      <div class="card">
+      <div class="card t-head">
         <div class="thero">${avatar({ meta, symbol: tok.symbol }, "lg")}
-          <div style="flex:1"><h2>${esc(tok.name)} <span class="muted mono" style="font-size:16px">$${esc(tok.symbol)}</span></h2>
+          <div style="flex:1;min-width:0"><h2>${esc(tok.name)} <span class="muted mono" style="font-size:16px">$${esc(tok.symbol)}</span></h2>
             <div style="margin-top:6px">${statusBadge(st.status)} ${isOfficial(curve, tok.address) ? officialBadge : ""} <span class="muted" style="font-size:13px">Config #${st.configId} · fee ${feePct}%</span></div>
             <div class="links">${links.map(([n, u]) => `<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener nofollow">${n} ${ICON_OUT}</a>`).join("")}<button class="lbtn" id="shareTok">${ICON_SHARE} Share</button></div></div></div>
-        ${meta.description ? `<p class="muted" style="margin:14px 0 0">${esc(meta.description)}</p>` : ""}
+        ${meta.description ? `<p class="muted tdesc2">${esc(meta.description)}</p>` : ""}
       </div>
       <div class="sgrid">
         <div class="stat"><span>Price</span><b>${fmt(price, 5)}</b><span>ETH per token</span></div>
         <div class="stat"><span>Market cap</span><b>${fmt(mcap)}</b><span>ETH</span></div>
-        <div class="stat"><span>Curve reserve</span><b>${fu(st.quoteReserve, 18)}</b><span>WETH</span></div>
+        ${st.status === 3 ? `<div class="stat"><span>Supply</span><b>${fu(tok.supply, tok.decimals)}</b><span>${esc(tok.symbol)}</span></div>`
+          : `<div class="stat"><span>Curve reserve</span><b>${fu(st.quoteReserve, 18)}</b><span>WETH</span></div>`}
       </div>
-      <div class="card">
+      ${st.status === 3 ? `<div class="card t-grad"><span class="badge b-grad">Graduated</span><span class="muted">Liquidity now lives in a permanent Ammora pool, where this token trades.</span></div>` : `<div class="card">
         <div class="kv" style="font-size:14px"><span>Graduation progress</span><b>${(progress * 100).toFixed(2)}%</b></div>
         <div class="bar" style="margin:10px 0"><i style="width:${(progress * 100).toFixed(2)}%"></i></div>
         <div class="muted" style="font-size:13px">${st.status === 3 ? "This token graduated. Its liquidity now lives in a permanent Ammora pool." :
           `When ${fu(thr, 18)} WETH has been raised on the curve, it becomes ready to graduate into a permanent Ammora pool.`}</div>
-      </div>
+      </div>`}
       <div class="card"><h3>Price</h3><div class="chart" id="chart"><div class="muted" style="padding:20px">Loading trades…</div></div></div>
       <div class="card"><h3 style="margin-bottom:8px">Recent trades</h3><div class="scroll" id="trades"><div class="muted">Loading…</div></div></div>
       <div class="card" style="display:grid;gap:8px;font-size:13.5px">

@@ -317,4 +317,30 @@ a.prow2:hover{text-decoration:none;background:var(--panel2)}
 .pk{font-size:12px;font-weight:800;min-width:58px}
 .pempty{padding:22px;border:1px dashed var(--line);border-radius:12px;text-align:center;color:var(--mute)}
 @media (max-width:700px){.psum{grid-template-columns:1fr 1fr}.psum-i:nth-child(2){border-right:0}.psum-i:nth-child(-n+2){border-bottom:1px solid var(--line)}.phead h1{font-size:30px}}
+/* token page: compact header, graduated line, mobile order (header → trade box → details) */
+.tdesc2{margin:14px 0 0}
+.t-grad{display:flex;align-items:center;gap:10px;padding:14px 16px;font-size:13.5px}
+@media (max-width:900px){
+  .tok{display:flex;flex-direction:column;gap:14px}
+  .tok .left{display:contents}
+  .tok .left>*{order:3}
+  .tok .t-head{order:1}
+  .tok .trade{order:2}
+}
+@media (max-width:600px){
+  .t-head{padding:14px 16px}
+  .t-head .thero{gap:12px;flex-wrap:nowrap;align-items:flex-start}
+  .t-head .avatar.lg{width:52px;height:52px;border-radius:12px;font-size:20px;flex-shrink:0}
+  .t-head h2{font-size:22px;line-height:1.15}
+  .t-head h2 .mono{font-size:13px!important}
+  .t-head .badge{font-size:10.5px;padding:2px 7px}
+  .t-head .links{gap:6px;margin-top:8px}
+  .t-head .links a,.t-head .lbtn{font-size:12px;padding:4px 9px;min-height:28px}
+  .tdesc2{margin:10px 0 0;font-size:13.5px}
+  .sgrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .sgrid .stat{padding:10px 12px}
+  .sgrid .stat b{font-size:16px;margin:2px 0 0;overflow:hidden;text-overflow:ellipsis}
+  .sgrid .stat span{font-size:11px}
+  .t-grad{padding:12px 14px;font-size:12.5px}
+}
 [hidden]{display:none!important}
