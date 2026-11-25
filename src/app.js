@@ -32,6 +32,20 @@ const LAUNCH_EVENT = A.ammoraLaunchFactoryV4Abi.find((x) => x.type === "event" &
 const SWAP_EVENT = A.ammoraLaunchPoolV4Abi.find((x) => x.type === "event" && x.name === "Swap");
 const LAUNCH_TOPIC = toEventSelector(LAUNCH_EVENT);
 const SWAP_TOPIC = toEventSelector(SWAP_EVENT);
+// Swap event of the Ammora concentrated pool a token graduates into (post-graduation trades).
+const POOL_SWAP_EVENT = { type: "event", name: "Swap", inputs: [
+  { indexed: true, name: "sender", type: "address" }, { indexed: true, name: "tokenIn", type: "address" },
+  { indexed: false, name: "amountIn", type: "uint256" }, { indexed: false, name: "amountOut", type: "uint256" },
+  { indexed: false, name: "protocolFee", type: "uint256" }, { indexed: false, name: "protocolFee2", type: "uint256" },
+  { indexed: false, name: "referralFee", type: "uint256" }, { indexed: false, name: "creatorFee", type: "uint256" },
+  { indexed: false, name: "lpFee", type: "uint256" }, { indexed: false, name: "sqrtPrice", type: "uint128" },
+  { indexed: true, name: "recipient", type: "address" }] };
+// Some pool variants emit a slightly different Swap (claiming/compounding fees); decode both.
+const POOL_SWAP_EVENT_B = { ...POOL_SWAP_EVENT, inputs: [...POOL_SWAP_EVENT.inputs.slice(0, 6),
+  { indexed: false, name: "creatorFee", type: "uint256" }, { indexed: false, name: "referralFee", type: "uint256" },
+  { indexed: false, name: "claimingFee", type: "uint256" }, { indexed: false, name: "compoundingFee", type: "uint256" },
+  ...POOL_SWAP_EVENT.inputs.slice(9)] };
+const POOL_SWAP_EVENTS = [POOL_SWAP_EVENT, POOL_SWAP_EVENT_B];
 const wethAbi = [
   { type: "function", name: "deposit", stateMutability: "payable", inputs: [], outputs: [] },
   { type: "function", name: "withdraw", stateMutability: "nonpayable", inputs: [{ type: "uint256", name: "wad" }], outputs: [] },
@@ -363,7 +377,8 @@ async function explorerLogs({ address, topic0, topic1, topic2, fromBlock = FACTO
   const out = [];
   let from = fromBlock;
   for (let page = 0; page < 8; page++) {
-    const q = new URLSearchParams({ module: "logs", action: "getLogs", fromBlock: String(from), toBlock: "latest", address, topic0 });
+    const q = new URLSearchParams({ module: "logs", action: "getLogs", fromBlock: String(from), toBlock: "latest", address });
+    if (topic0) q.set("topic0", topic0);
     if (topic1) { q.set("topic1", topic1); q.set("topic0_1_opr", "and"); }
     if (topic2) { q.set("topic2", topic2); q.set("topic0_2_opr", "and"); }
     const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 25_000);
@@ -375,13 +390,13 @@ async function explorerLogs({ address, topic0, topic1, topic2, fromBlock = FACTO
   }
   return out;
 }
-async function rpcLogs({ address, event, windows = 10 }) {
+async function rpcLogs({ address, event, events, windows = 10 }) {
   const head = await pc.getBlockNumber();
   const out = [];
   for (let i = 0; i < windows; i++) {
     const to = head - BigInt(i * 10_000);
     if (to < BigInt(FACTORY_START)) break;
-    const logs = await pc.getLogs({ address, event, fromBlock: to - 9_999n, toBlock: to });
+    const logs = await pc.getLogs({ address, ...(events ? { events } : { event }), fromBlock: to - 9_999n, toBlock: to });
     out.push(...logs);
   }
   return out;
@@ -610,9 +625,12 @@ async function viewToken(id, arg) {
 }
 
 async function loadTrades(ctx, id) {
-  let logs;
-  try { logs = await explorerLogs({ address: ctx.curve, topic0: SWAP_TOPIC }); }
-  catch { try { logs = await rpcLogs({ address: ctx.curve, event: SWAP_EVENT, windows: 3 }); } catch { logs = []; } }
+  const get = async (address, topic0, event, events) => {
+    try { return await explorerLogs({ address, topic0 }); }
+    catch { try { return await rpcLogs({ address, event, events, windows: 3 }); } catch { return []; } }
+  };
+  const pool = ctx.st.canonicalPool && ctx.st.canonicalPool !== zeroAddress ? ctx.st.canonicalPool : null;
+  const [logs, plogs] = await Promise.all([get(ctx.curve, SWAP_TOPIC, SWAP_EVENT), pool ? get(pool, null, null, POOL_SWAP_EVENTS) : []]);
   if (id !== renderId) return;
   const dec = ctx.tok.decimals;
   const trades = [];
@@ -625,12 +643,29 @@ async function loadTrades(ctx, id) {
         price: sqrtToPrice(a.nextSqrtPrice, dec), trader: a.recipient && a.recipient !== zeroAddress ? a.recipient : a.trader, tx: l.transactionHash, block: Number(l.blockNumber), time: l.timeStamp ? Number(l.timeStamp) : null });
     } catch {}
   }
+  const tokenAddr = ctx.tok.address.toLowerCase();
+  for (const l of plogs) {
+    try {
+      const ev = decodeEventLog({ abi: POOL_SWAP_EVENTS, data: l.data, topics: l.topics.filter(Boolean) });
+      if (ev.eventName !== "Swap") continue;
+      const a = ev.args, sell = a.tokenIn.toLowerCase() === tokenAddr;
+      const weth = sell ? a.amountOut : a.amountIn, tokens = sell ? a.amountIn : a.amountOut;
+      if (!tokens) continue;
+      // Pool price: use the pool's sqrt price in whichever orientation matches the trade; fall back to the fill price.
+      const eff = Number(formatUnits(weth, 18)) / Number(formatUnits(tokens, dec));
+      const p = sqrtToPrice(a.sqrtPrice, dec), pInv = p ? 1 / sqrtToPrice(a.sqrtPrice, 18, dec) : 0;
+      const near = (x) => x > 0 && x / eff < 3 && eff / x < 3;
+      const price = near(p) ? p : near(pInv) ? pInv : eff;
+      trades.push({ sell, weth, tokens, price, pool: true, trader: a.recipient && a.recipient !== zeroAddress ? a.recipient : a.sender,
+        tx: l.transactionHash, block: Number(l.blockNumber), time: l.timeStamp ? Number(l.timeStamp) : null });
+    } catch {}
+  }
   trades.sort((a, b) => a.block - b.block);
   drawChart(trades);
   $("#trades").innerHTML = trades.length ? `<table class="trades"><thead><tr><th>Type</th><th class="r">WETH</th><th class="r">${esc(ctx.tok.symbol)}</th><th>Trader</th><th class="r">When</th></tr></thead><tbody>
-    ${trades.slice(-40).reverse().map((t) => `<tr><td class="${t.sell ? "bad" : "good"}">${t.sell ? "Sell" : "Buy"}</td><td class="r">${fu(t.weth, 18)}</td><td class="r">${fu(t.tokens, dec)}</td>
+    ${trades.slice(-40).reverse().map((t) => `<tr><td class="${t.sell ? "bad" : "good"}">${t.sell ? "Sell" : "Buy"}${t.pool ? ` <span class="pill pool" title="Traded in the Ammora pool after graduation">Pool</span>` : ""}</td><td class="r">${fu(t.weth, 18)}</td><td class="r">${fu(t.tokens, dec)}</td>
       <td><a class="mono" href="${addrUrl(t.trader)}" target="_blank" rel="noopener">${short(t.trader)}</a></td><td class="r"><a href="${txUrl(t.tx)}" target="_blank" rel="noopener">${t.time ? ago(t.time) : "#" + t.block}</a></td></tr>`).join("")}
-    </tbody></table>` : `<div class="muted">No trades yet on the bonding curve.</div>`;
+    </tbody></table>` : `<div class="muted">No trades yet.</div>`;
 }
 function drawChart(trades) {
   const box = $("#chart");

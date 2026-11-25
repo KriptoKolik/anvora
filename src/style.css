@@ -253,4 +253,5 @@ th{color:var(--mute);font-weight:600}td.r,th.r{text-align:right;white-space:nowr
 .wopt img,.wopt .wl{width:28px;height:28px;border-radius:7px;flex:none;object-fit:contain}
 .wopt .wl{display:grid;place-items:center;background:var(--panel2);font-weight:800}
 
+.pill.pool{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border-radius:5px;margin-left:4px;vertical-align:1px;background:color-mix(in srgb,var(--fire) 18%,transparent);color:var(--text, inherit)}
 [hidden]{display:none!important}
