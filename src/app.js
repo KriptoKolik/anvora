@@ -56,6 +56,9 @@ const store = {
   get(k, d = null) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v, (_, x) => (typeof x === "bigint" ? x.toString() : x))); } catch {} },
 };
+// Every Config this site has used (current + previous), for the "On Anvora" filter and counter.
+const siteConfigIds = () => new Set([launchConfigId(), ...(SITE.previousConfigIds || [])].filter((x) => x !== null && x !== undefined).map((x) => BigInt(x)));
+const isSiteLaunch = (x) => siteConfigIds().has(BigInt(x.configId ?? -1));
 const launchConfigId = () => {
   if (SITE.launchConfigId !== null && SITE.launchConfigId !== undefined) return BigInt(SITE.launchConfigId);
   const saved = store.get("anvora.configId");
@@ -520,7 +523,7 @@ async function viewExplore(id) {
     .map(([k, v]) => `<div class="stat"><span>${k}</span><b>${v}</b></div>`).join("");
   // Live counter for this site's own Config: launches, distinct creators, graduations, WETH raised.
   {
-    const mineList = cid === null ? [] : list.filter((x) => x.configId === cid);
+    const mineList = list.filter(isSiteLaunch);
     const creators = new Set(mineList.map((x) => x.creator.toLowerCase())).size;
     const g = mineList.filter((x) => x.status >= 2).length;
     const raised = mineList.reduce((a, x) => a + (x.raised || 0), 0);
@@ -534,10 +537,10 @@ async function viewExplore(id) {
     const q = ui.q.trim().toLowerCase();
     let rows = list.filter((x) =>
       (ui.filter === "all") || (ui.filter === "live" && x.status === 1) || (ui.filter === "grad" && x.status === 3)
-      || (ui.filter === "near" && x.status === 1 && x.progress >= 0.5) || (ui.filter === "site" && cid !== null && x.configId === cid));
+      || (ui.filter === "near" && x.status === 1 && x.progress >= 0.5) || (ui.filter === "site" && isSiteLaunch(x)));
     if (q) rows = rows.filter((x) => [x.name, x.symbol, x.token, x.curve].some((v) => String(v || "").toLowerCase().includes(q)));
     // Your own launchpad's tokens are never hidden.
-    else if (ui.hideTest) rows = rows.filter((x) => (cid !== null && x.configId === cid) || (!x.junk && !x.test));
+    else if (ui.hideTest) rows = rows.filter((x) => isSiteLaunch(x) || (!x.junk && !x.test));
     const m = (x) => (x.junk ? -1 : x.mcap);
     if (ui.sort === "hot") rows = [...rows].sort((a, b) => b.raised - a.raised || b.block - a.block);
     if (ui.sort === "mcap") rows = [...rows].sort((a, b) => m(b) - m(a));

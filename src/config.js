@@ -12,12 +12,15 @@ export const SITE = {
   // Until then the site uses the ID saved in your own browser by #/setup.
   launchConfigId: 96n, // created on #/setup by the owner wallet (GIWA Sepolia)
 
+  // Earlier Configs of this site. Their launches still count as "On Anvora" (filter, counter).
+  previousConfigIds: [96n], // #96: 0.05 WETH graduation target (Nov 2026)
+
   // Config the setup page copies (curve shape, fees, vesting). null = pick the newest enabled
   // Ammora Config automatically. (Template #6 has been disabled by Ammora.)
   templateConfigId: null,
 
   // Defaults for the setup page.
-  setupDefaults: { graduationWeth: "0.05", saleSupply: "800000000" },
+  setupDefaults: { graduationWeth: "0.25", saleSupply: "800000000" },
 
   // Official launches: shown with an "Official" badge and pinned to the top of Explore.
   officialTokens: [
