@@ -254,4 +254,17 @@ th{color:var(--mute);font-weight:600}td.r,th.r{text-align:right;white-space:nowr
 .wopt .wl{display:grid;place-items:center;background:var(--panel2);font-weight:800}
 
 .pill.pool{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border-radius:5px;margin-left:4px;vertical-align:1px;background:color-mix(in srgb,var(--fire) 18%,transparent);color:var(--text, inherit)}
+.earn{padding:20px}
+.earn-h{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.earn-h h3{margin:0}
+.earn-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.earn-box{border:1px solid var(--grid);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.earn-k{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;opacity:.75}
+.earn-v{font-size:28px;font-weight:800;line-height:1.1}
+.earn-v small{font-size:14px;font-weight:600;opacity:.7}
+.earn-d{font-size:12.5px}
+.earn-list{display:flex;flex-direction:column;gap:8px}
+.earn-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--grid)}
+.earn-row:last-child{border-bottom:0}
+@media (max-width:700px){.earn-grid{grid-template-columns:1fr}}
 [hidden]{display:none!important}

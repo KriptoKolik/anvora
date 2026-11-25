@@ -1063,7 +1063,11 @@ function curveBuyQuote(config, segments, amountIn) {
 /* ───────────── view: portfolio ───────────── */
 async function viewPortfolio(id) {
   if (!W.address) { app.innerHTML = `<div class="empty"><h2 style="margin-bottom:12px">Your portfolio</h2>Connect your wallet to see your tokens and launches.<br><button class="btn pri" id="pc" style="margin-top:14px">Connect wallet</button></div>`; $("#pc").onclick = () => ensureWallet().catch((e) => toast(esc(errText(e)), "err")); return; }
-  app.innerHTML = `<h1 style="font-size:36px;margin-bottom:20px">Your portfolio</h1><div class="grid" id="mine"><div class="skel"></div><div class="skel"></div></div>`;
+  app.innerHTML = `<h1 style="font-size:36px;margin-bottom:20px">Your portfolio</h1>
+    <section class="card earn" id="earn"><div class="earn-h"><h3>Your earnings</h3><span class="muted">Fees you earned as a token creator or Config owner</span></div>
+      <div class="earn-grid"><div class="earn-box" id="evault"><div class="skel" style="height:96px"></div></div><div class="earn-box" id="elp"><div class="skel" style="height:96px"></div></div></div></section>
+    <h3 style="margin:26px 0 12px">Tokens</h3><div class="grid" id="mine"><div class="skel"></div><div class="skel"></div></div>`;
+  loadEarnings(id, getAddress(W.address));
   let list;
   try { list = await loadLaunches(); } catch (e) { if (id === renderId) $("#mine").innerHTML = `<div class="empty">${esc(errText(e))}</div>`; return; }
   const res = await pc.multicall({ contracts: list.map((x) => ({ address: x.token, abi: erc20Abi, functionName: "balanceOf", args: [W.address] })), allowFailure: true });
@@ -1076,6 +1080,84 @@ async function viewPortfolio(id) {
       <div class="kv"><span>Value</span><b>${fmt(Number(formatUnits(x.bal, x.decimals)) * x.price)} ETH</b></div>
       ${x.creator.toLowerCase() === me ? `<div class="kv"><span>Role</span><b class="good">You launched this</b></div>` : ""}</a>`).join("")
     : `<div class="empty" style="grid-column:1/-1">No tokens yet. <a href="#/">Explore launches</a> or <a href="#/create">launch one</a>.</div>`;
+}
+
+/* ───────────── earnings (Portfolio) ───────────── */
+// Two income streams, both read on-chain through the SDK's ABIs:
+//  • Trading fees: each curve trade sets aside a creator share and a Config-owner (partner) share.
+//    They accumulate in Ammora's fee vault as WETH until the owner claims them.
+//  • Pool fees: at graduation the liquidity becomes a position NFT in the Ammora pool;
+//    every pool trade accrues fees to that position, claimable by whoever holds the NFT.
+const ERC721_TRANSFER = toEventSelector("Transfer(address,address,uint256)");
+const PM = () => L.concentratedPositionManager;
+const pmAbi = () => A.ammConcentratedPositionManagerV3Abi;
+
+function loadEarnings(id, me) {
+  vaultCard(id, me);
+  positionsCard(id, me);
+}
+
+async function vaultCard(id, me) {
+  const box = () => $("#evault");
+  let vault, owed;
+  try {
+    vault = await retryLag(() => pc.readContract({ address: L.factory, abi: A.ammoraLaunchFactoryV4Abi, functionName: "feeVault" }));
+    owed = await pc.readContract({ address: vault, abi: A.feeVaultAbi, functionName: "claimable", args: [WETH, me] });
+  } catch (e) { if (id === renderId && box()) box().innerHTML = `<div class="muted">Trading fees could not be read right now. ${esc(errText(e))}</div>`; return; }
+  if (id !== renderId || !box()) return;
+  box().innerHTML = `<div class="earn-k">Trading fees</div>
+    <div class="earn-v">${fu(owed, 18, 6)} <small>WETH</small></div>
+    <div class="muted earn-d">Your creator and Config-owner share of every bonding-curve trade, across all your launches.</div>
+    <button class="btn ${owed > 0n ? "pri" : ""} block" id="vclaim" ${owed > 0n ? "" : "disabled"}>${owed > 0n ? "Claim to wallet" : "Nothing to claim yet"}</button>`;
+  $("#vclaim").onclick = async () => {
+    try {
+      await ensureWallet();
+      if (getAddress(W.address) !== me) throw new Error("Switch back to the wallet this portfolio belongs to.");
+      const tx = A.buildClaimFeeVaultFor(WETH, me, me);
+      await runSteps("Claiming trading fees", [{ label: `Claim ${fu(owed, 18, 6)} WETH`, run: () => sendTx({ to: vault, data: tx.data }, "Fee claim") }]);
+      toast("Fees claimed. They arrive as WETH; unwrap on the Wrap page if you want ETH.", "ok", 8000);
+      setTimeout(() => vaultCard(id, me), 2500);
+    } catch (e) { if (!e.shown) toast(esc(errText(e)), "err", 9000); }
+  };
+}
+
+async function positionsCard(id, me) {
+  const box = () => $("#elp");
+  let rows = [];
+  try {
+    const logs = await explorerLogs({ address: PM(), topic0: ERC721_TRANSFER, topic2: "0x" + me.slice(2).toLowerCase().padStart(64, "0") });
+    const ids = [...new Set(logs.filter((l) => l.topics[3]).map((l) => BigInt(l.topics[3])))].slice(-40);
+    const launches = await loadLaunches().catch(() => []);
+    rows = (await Promise.all(ids.map(async (tokenId) => {
+      const owner = await pc.readContract({ address: PM(), abi: pmAbi(), functionName: "ownerOf", args: [tokenId] }).catch(() => null);
+      if (!owner || owner.toLowerCase() !== me.toLowerCase()) return null;
+      const pos = await pc.readContract({ address: PM(), abi: pmAbi(), functionName: "getPosition", args: [tokenId] }).catch(() => null);
+      let fees = null;
+      try { fees = (await pc.simulateContract({ address: PM(), abi: pmAbi(), functionName: "claimPositionFees", args: [tokenId, me], account: me })).result; } catch {}
+      const launch = pos && launches.find((x) => x.pool && x.pool.toLowerCase() === String(pos.pool).toLowerCase());
+      return { tokenId, launch, fees };
+    }))).filter(Boolean);
+  } catch (e) { if (id === renderId && box()) box().innerHTML = `<div class="earn-k">Pool fees</div><div class="muted">Positions could not be read right now. ${esc(errText(e))}</div>`; return; }
+  if (id !== renderId || !box()) return;
+  const has = (r) => r.fees && (r.fees[0] > 0n || r.fees[1] > 0n);
+  box().innerHTML = `<div class="earn-k">Pool fees</div>
+    ${rows.length ? `<div class="earn-list">${rows.map((r, i) => `<div class="earn-row">
+        <div><b>${r.launch ? "$" + esc(r.launch.symbol) : "Position"}</b> <span class="muted mono">#${r.tokenId}</span>
+          <div class="muted" style="font-size:12.5px">${r.fees ? `${fu(r.fees[0], r.launch?.decimals ?? 18)} ${esc(r.launch?.symbol || "token")} + ${fu(r.fees[1], 18, 6)} WETH` : "Fees unavailable"}</div></div>
+        <button class="btn ${has(r) ? "pri" : ""}" data-p="${i}" ${has(r) ? "" : "disabled"}>${has(r) ? "Claim" : "—"}</button></div>`).join("")}</div>`
+      : `<div class="earn-v">0 <small>positions</small></div>`}
+    <div class="muted earn-d">When one of your tokens graduates, its pool position earns a fee on every pool trade.</div>`;
+  box().querySelectorAll("[data-p]").forEach((b) => (b.onclick = async () => {
+    const r = rows[Number(b.dataset.p)];
+    try {
+      await ensureWallet();
+      if (getAddress(W.address) !== me) throw new Error("Switch back to the wallet this portfolio belongs to.");
+      const data = encodeFunctionData({ abi: pmAbi(), functionName: "claimPositionFees", args: [r.tokenId, me] });
+      await runSteps("Claiming pool fees", [{ label: `Claim fees of position #${r.tokenId}`, run: () => sendTx({ to: PM(), data }, "Pool fee claim") }]);
+      toast("Pool fees claimed.", "ok", 6000);
+      setTimeout(() => positionsCard(id, me), 2500);
+    } catch (e) { if (!e.shown) toast(esc(errText(e)), "err", 9000); }
+  }));
 }
 
 /* ───────────── view: swap ───────────── */
