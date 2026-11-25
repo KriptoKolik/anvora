@@ -922,8 +922,9 @@ function buildMeta(base, bmp) {
   return { uri: plain, meta, tooBig: true };
 }
 
-async function viewCreate(id) {
-  const cid = launchConfigId();
+async function viewCreate(id, arg) {
+  // #/create/<configId> launches with a specific Config (e.g. a one-off official launch); default is the site's Config.
+  const cid = arg && /^\d+$/.test(arg) ? BigInt(arg) : launchConfigId();
   if (cid === null) {
     app.innerHTML = `<div class="form card"><h2>Launching is not set up yet</h2>
       <p class="muted">This launchpad needs its own Ammora launch Config first. The site owner creates it once on the setup page (gas only), then every token launched here uses it.</p>
@@ -1749,7 +1750,7 @@ async function render() {
   window.scrollTo(0, 0);
   try {
     if (route === "token") return await viewToken(id, arg);
-    if (route === "create") return await viewCreate(id);
+    if (route === "create") return await viewCreate(id, arg);
     if (route === "portfolio") return await viewPortfolio(id, arg);
     if (route === "swap") return await viewSwap(id, arg);
     if (route === "wrap") return await viewWrap();
