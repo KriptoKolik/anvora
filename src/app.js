@@ -1090,25 +1090,129 @@ function curveBuyQuote(config, segments, amountIn) {
 }
 
 /* ───────────── view: portfolio ───────────── */
-async function viewPortfolio(id) {
-  if (!W.address) { app.innerHTML = `<div class="empty"><h2 style="margin-bottom:12px">Your portfolio</h2>Connect your wallet to see your tokens and launches.<br><button class="btn pri" id="pc" style="margin-top:14px">Connect wallet</button></div>`; $("#pc").onclick = () => ensureWallet().catch((e) => toast(esc(errText(e)), "err")); return; }
-  app.innerHTML = `<h1 style="font-size:36px;margin-bottom:20px">Your portfolio</h1>
-    <section class="card earn" id="earn"><div class="earn-h"><h3>Your earnings</h3><span class="muted">Fees you earned as a token creator or Config owner</span></div>
-      <div class="earn-grid"><div class="earn-box" id="evault"><div class="skel" style="height:96px"></div></div><div class="earn-box" id="elp"><div class="skel" style="height:96px"></div></div></div></section>
-    <h3 style="margin:26px 0 12px">Tokens</h3><div class="grid" id="mine"><div class="skel"></div><div class="skel"></div></div>`;
-  loadEarnings(id, getAddress(W.address));
-  let list;
-  try { list = await loadLaunches(); } catch (e) { if (id === renderId) $("#mine").innerHTML = `<div class="empty">${esc(errText(e))}</div>`; return; }
-  const res = await pc.multicall({ contracts: list.map((x) => ({ address: x.token, abi: erc20Abi, functionName: "balanceOf", args: [W.address] })), allowFailure: true });
+// A wallet's whole picture: a one-line summary on top, details in tabs (Holdings · Earnings · Launches · Activity).
+const PTABS = [["hold", "Holdings"], ["earn", "Earnings"], ["launch", "Launches"], ["act", "Activity"]];
+let ptab = "hold";
+let psum = null; // summary values filled in as each part loads
+const poolPriceAbi = [{ type: "function", name: "sqrtPrice", stateMutability: "view", inputs: [], outputs: [{ type: "uint128" }] }];
+
+async function viewPortfolio(id, arg) {
+  // #/portfolio/<address> shows any wallet read-only (handy for sharing); otherwise the connected wallet.
+  const other = arg && isAddress(arg) && (!W.address || getAddress(arg) !== getAddress(W.address)) ? getAddress(arg) : null;
+  if (!W.address && !other) { app.innerHTML = `<div class="empty"><h2 style="margin-bottom:12px">Your portfolio</h2>Connect your wallet to see your holdings, earnings, launches and trades.<br><button class="btn pri" id="pc" style="margin-top:14px">Connect wallet</button></div>`; $("#pc").onclick = () => ensureWallet().catch((e) => toast(esc(errText(e)), "err")); return; }
+  const me = other || getAddress(W.address);
+  psum = { hold: null, fees: null, vault: null, lp: null, launched: null, trades: null };
+  const item = (k, label) => `<button class="psum-i" data-go="${k === "fees" ? "earn" : k === "launched" ? "launch" : k === "trades" ? "act" : "hold"}"><span>${label}</span><b id="ps-${k}"><i class="dots">…</i></b></button>`;
+  app.innerHTML = `<div class="phead"><h1>${other ? "Portfolio" : "Your portfolio"}</h1><a class="mono muted" href="${addrUrl(me)}" target="_blank" rel="noopener">${short(me)} ${ICON_OUT}</a></div>
+    <div class="psum">${item("hold", "Holdings")}${item("fees", "To claim")}${item("launched", "Launched")}${item("trades", "Trades")}</div>
+    <div class="ptabs" id="ptabs" role="tablist">${PTABS.map(([k, n]) => `<button data-t="${k}" role="tab" class="${k === ptab ? "on" : ""}">${n}<em id="pc-${k}"></em></button>`).join("")}</div>
+    <div class="ppanel" data-p="hold"><div class="pwallet muted" id="pwallet"></div><div id="phold"><div class="skel" style="height:120px"></div></div></div>
+    <div class="ppanel" data-p="earn">
+      <div class="earn-grid"><div class="earn-box" id="evault"><div class="skel" style="height:96px"></div></div><div class="earn-box" id="elp"><div class="skel" style="height:96px"></div></div></div></div>
+    <div class="ppanel" data-p="launch"><div id="plaunch"><div class="skel" style="height:80px"></div></div></div>
+    <div class="ppanel" data-p="act"><div id="pact"><div class="skel" style="height:120px"></div></div></div>`;
+  const show = (t) => {
+    ptab = t;
+    $$a(".ptabs button").forEach((b) => b.classList.toggle("on", b.dataset.t === t));
+    $$a(".ppanel").forEach((p) => (p.hidden = p.dataset.p !== t));
+  };
+  $("#ptabs").onclick = (e) => { const b = e.target.closest("button"); if (b) show(b.dataset.t); };
+  $$a(".psum-i").forEach((b) => (b.onclick = () => { show(b.dataset.go); $("#ptabs").scrollIntoView({ behavior: "smooth", block: "nearest" }); }));
+  show(ptab);
+
+  loadEarnings(id, me);
+  let list = [];
+  try { list = await loadLaunches(); } catch (e) { if (id === renderId) $("#phold").innerHTML = `<div class="muted">${esc(errText(e))}</div>`; }
   if (id !== renderId) return;
-  const me = W.address.toLowerCase();
-  const rows = list.map((x, i) => ({ ...x, bal: res[i]?.status === "success" ? res[i].result : 0n })).filter((x) => x.bal > 0n || x.creator.toLowerCase() === me);
-  $("#mine").innerHTML = rows.length ? rows.map((x) => `
-    <a class="card tcard" href="#/token/${x.curve}"><div class="thead">${avatar(x)}<div style="flex:1"><b>${esc(x.name || "Unnamed")}</b><span class="muted mono">$${esc(x.symbol || "?")}</span></div>${statusBadge(x.status)}</div>
-      <div class="kv"><span>Balance</span><b>${fu(x.bal, x.decimals)}</b></div>
-      <div class="kv"><span>Value</span><b>${fmt(Number(formatUnits(x.bal, x.decimals)) * x.price)} ETH</b></div>
-      ${x.creator.toLowerCase() === me ? `<div class="kv"><span>Role</span><b class="good">You launched this</b></div>` : ""}</a>`).join("")
-    : `<div class="empty" style="grid-column:1/-1">No tokens yet. <a href="#/">Explore launches</a> or <a href="#/create">launch one</a>.</div>`;
+  portfolioHoldings(id, me, list);
+  portfolioLaunches(id, me, list);
+  portfolioActivity(id, me, list);
+}
+const $$a = (q) => [...document.querySelectorAll(q)];
+function psumSet(k, html, count) {
+  const el = $(`#ps-${k}`); if (el) el.innerHTML = html;
+  if (count !== undefined) { const c = $(`#pc-${{ hold: "hold", launched: "launch", trades: "act", fees: "earn" }[k]}`); if (c) c.textContent = count ? String(count) : ""; }
+}
+function psumFees() {
+  if (!psum || psum.vault === null || psum.lp === null) return;
+  const t = psum.vault + psum.lp;
+  psumSet("fees", t > 0n ? `${fu(t, 18, 4)} <small>WETH</small>` : `0 <small>WETH</small>`, (psum.cv || 0) + (psum.cl || 0));
+  const s = $(".psum-i[data-go=earn]"); if (s) s.classList.toggle("hot", t > 0n);
+}
+
+async function portfolioHoldings(id, me, list) {
+  try {
+    const res = [];
+    for (let i = 0; i < list.length; i += 250) res.push(...await pc.multicall({ contracts: list.slice(i, i + 250).map((x) => ({ address: x.token, abi: erc20Abi, functionName: "balanceOf", args: [me] })), allowFailure: true }));
+    const [eth, weth] = await Promise.all([pc.getBalance({ address: me }), balanceOf(WETH, me)]);
+    const held = list.map((x, i) => ({ x, bal: res[i]?.status === "success" ? res[i].result : 0n })).filter((h) => h.bal > 0n);
+    // Graduated tokens are priced by their Ammora pool; live ones by their curve.
+    const grads = held.filter((h) => h.x.status === 3 && h.x.pool && h.x.pool !== zeroAddress);
+    if (grads.length) {
+      const pr = await pc.multicall({ contracts: grads.map((h) => ({ address: h.x.pool, abi: poolPriceAbi, functionName: "sqrtPrice" })), allowFailure: true });
+      grads.forEach((h, i) => {
+        if (pr[i]?.status !== "success") return;
+        const p = sqrtToPrice(pr[i].result, h.x.decimals), inv = 1 / sqrtToPrice(pr[i].result, 18, h.x.decimals), ref = h.x.price || p;
+        const dist = (v) => (v > 0 && Number.isFinite(v) ? Math.abs(Math.log(v / ref)) : Infinity);
+        h.poolPrice = dist(p) <= dist(inv) ? p : inv;
+      });
+    }
+    held.forEach((h) => { h.price = h.poolPrice ?? h.x.price ?? 0; h.amount = Number(formatUnits(h.bal, h.x.decimals)); h.value = h.x.junk ? 0 : h.amount * h.price; });
+    held.sort((a, b) => b.value - a.value);
+    if (id !== renderId) return;
+    const total = held.reduce((a, h) => a + h.value, 0);
+    psumSet("hold", `${fmt(total)} <small>ETH</small>`, held.length);
+    $("#pwallet").innerHTML = `Wallet <b>${fu(eth, 18, 5)}</b> ETH · <b>${fu(weth, 18, 5)}</b> WETH${weth > 0n ? ` · <a href="#/swap/weth">Unwrap</a>` : ""}`;
+    $("#phold").innerHTML = held.length ? `<div class="plist2">${held.map((h) => `
+      <a class="prow2" href="#/token/${h.x.curve}">${avatar(h.x, "sm")}
+        <div class="pr-main"><b>${esc(h.x.name || "Unnamed")}</b><span class="muted">${fmt(h.amount)} $${esc(h.x.symbol || "?")}</span></div>
+        <div class="pr-side"><b>${h.value ? fmt(h.value) + " ETH" : "—"}</b>${statusBadge(h.x.status)}</div></a>`).join("")}</div>`
+      : `<div class="pempty">You don't hold any launch tokens yet. <a href="#/">Explore launches</a></div>`;
+  } catch (e) { if (id === renderId) { $("#phold").innerHTML = `<div class="muted">Holdings could not be read right now. ${esc(errText(e))}</div>`; psumSet("hold", "—"); } }
+}
+
+function portfolioLaunches(id, me, list) {
+  const mine = list.filter((x) => x.creator.toLowerCase() === me.toLowerCase());
+  psumSet("launched", String(mine.length), mine.length);
+  $("#plaunch").innerHTML = mine.length ? `<div class="plist2">${mine.map((x) => `
+    <a class="prow2" href="#/token/${x.curve}">${avatar(x, "sm")}
+      <div class="pr-main"><b>${esc(x.name || "Unnamed")}</b><span class="muted">$${esc(x.symbol || "?")} · ${x.time ? ago(x.time) : "block " + x.block}</span></div>
+      <div class="pr-side"><b>${fmt(x.raised)} WETH</b>${x.status === 1 ? `<span class="muted" style="font-size:12px">${(x.progress * 100).toFixed(1)}% to graduation</span>` : statusBadge(x.status)}</div></a>`).join("")}</div>`
+    : `<div class="pempty">You haven't launched a token yet. <a href="#/create">Launch one</a></div>`;
+}
+
+// Activity: the wallet's token transfers from the explorer, grouped per transaction into buys and sells.
+async function portfolioActivity(id, me, list) {
+  try {
+    const byToken = new Map(list.map((x) => [x.token.toLowerCase(), x]));
+    const q = new URLSearchParams({ module: "account", action: "tokentx", address: me, sort: "desc", page: "1", offset: "1000" });
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 25_000);
+    const j = await fetch(`${EXPLORER}/api?${q}`, { signal: ctl.signal }).then((r) => r.json()).finally(() => clearTimeout(t));
+    const me_ = me.toLowerCase(), weth = WETH.toLowerCase();
+    const txs = new Map();
+    for (const r of Array.isArray(j.result) ? j.result : []) {
+      const k = r.hash; if (!txs.has(k)) txs.set(k, { hash: k, time: Number(r.timeStamp), tok: new Map(), weth: 0n });
+      const g = txs.get(k), v = BigInt(r.value || 0), sign = r.to?.toLowerCase() === me_ ? 1n : r.from?.toLowerCase() === me_ ? -1n : 0n;
+      const c = r.contractAddress?.toLowerCase();
+      if (c === weth) g.weth += sign * v;
+      else if (byToken.has(c)) g.tok.set(c, (g.tok.get(c) || 0n) + sign * v);
+    }
+    const rows = [];
+    for (const g of txs.values()) for (const [c, net] of g.tok) {
+      if (!net) continue;
+      const x = byToken.get(c);
+      const kind = net > 0n ? (g.weth < 0n ? "Buy" : "Received") : g.weth > 0n ? "Sell" : "Sent";
+      rows.push({ x, kind, amt: net < 0n ? -net : net, weth: g.weth < 0n ? -g.weth : g.weth, hash: g.hash, time: g.time });
+    }
+    if (id !== renderId) return;
+    const trades = rows.filter((r) => r.kind === "Buy" || r.kind === "Sell").length;
+    psumSet("trades", String(trades), rows.length);
+    $("#pact").innerHTML = rows.length ? `<div class="plist2">${rows.slice(0, 100).map((r) => `
+      <div class="prow2"><span class="pk ${r.kind === "Buy" || r.kind === "Received" ? "good" : "bad"}">${r.kind}</span>
+        <div class="pr-main"><a href="#/token/${r.x.curve}"><b>$${esc(r.x.symbol || "?")}</b></a><span class="muted">${fmt(Number(formatUnits(r.amt, r.x.decimals)))} tokens${r.weth && (r.kind === "Buy" || r.kind === "Sell") ? ` · ${fu(r.weth, 18, 5)} WETH` : ""}</span></div>
+        <div class="pr-side"><a class="muted" href="${txUrl(r.hash)}" target="_blank" rel="noopener">${ago(r.time)} ${ICON_OUT}</a></div></div>`).join("")}</div>`
+      : `<div class="pempty">No trades yet. <a href="#/swap">Make your first swap</a></div>`;
+  } catch (e) { if (id === renderId) { $("#pact").innerHTML = `<div class="muted">Activity could not be read right now. ${esc(errText(e))}</div>`; psumSet("trades", "—"); } }
 }
 
 /* ───────────── earnings (Portfolio) ───────────── */
@@ -1132,8 +1236,9 @@ async function vaultCard(id, me) {
   try {
     vault = await retryLag(() => pc.readContract({ address: L.factory, abi: A.ammoraLaunchFactoryV4Abi, functionName: "feeVault" }));
     owed = await pc.readContract({ address: vault, abi: A.feeVaultAbi, functionName: "claimable", args: [WETH, me] });
-  } catch (e) { if (id === renderId && box()) box().innerHTML = `<div class="muted">Trading fees could not be read right now. ${esc(errText(e))}</div>`; return; }
+  } catch (e) { if (psum) { psum.vault = 0n; psumFees(); } if (id === renderId && box()) box().innerHTML = `<div class="muted">Trading fees could not be read right now. ${esc(errText(e))}</div>`; return; }
   if (id !== renderId || !box()) return;
+  if (psum) { psum.vault = owed; psum.cv = owed > 0n ? 1 : 0; psumFees(); }
   box().innerHTML = `<div class="earn-k">Trading fees</div>
     <div class="earn-v">${fu(owed, 18, 6)} <small>WETH</small></div>
     <div class="muted earn-d">Your creator and Config-owner share of every bonding-curve trade, across all your launches.</div>
@@ -1166,9 +1271,10 @@ async function positionsCard(id, me) {
       const launch = pos && launches.find((x) => x.pool && x.pool.toLowerCase() === String(pos.pool).toLowerCase());
       return { tokenId, launch, fees };
     }))).filter(Boolean);
-  } catch (e) { if (id === renderId && box()) box().innerHTML = `<div class="earn-k">Pool fees</div><div class="muted">Positions could not be read right now. ${esc(errText(e))}</div>`; return; }
+  } catch (e) { if (psum) { psum.lp = 0n; psumFees(); } if (id === renderId && box()) box().innerHTML = `<div class="earn-k">Pool fees</div><div class="muted">Positions could not be read right now. ${esc(errText(e))}</div>`; return; }
   if (id !== renderId || !box()) return;
   const has = (r) => r.fees && (r.fees[0] > 0n || r.fees[1] > 0n);
+  if (psum) { psum.lp = rows.reduce((a, r) => a + (r.fees?.[1] || 0n), 0n); psum.cl = rows.filter(has).length; psumFees(); }
   box().innerHTML = `<div class="earn-k">Pool fees</div>
     ${rows.length ? `<div class="earn-list">${rows.map((r, i) => `<div class="earn-row">
         <div><b>${r.launch ? "$" + esc(r.launch.symbol) : "Position"}</b> <span class="muted mono">#${r.tokenId}</span>
@@ -1515,7 +1621,7 @@ async function render() {
   try {
     if (route === "token") return await viewToken(id, arg);
     if (route === "create") return await viewCreate(id);
-    if (route === "portfolio") return await viewPortfolio(id);
+    if (route === "portfolio") return await viewPortfolio(id, arg);
     if (route === "swap") return await viewSwap(id, arg);
     if (route === "wrap") return await viewWrap();
     if (route === "setup") return viewSetup();
