@@ -1501,6 +1501,9 @@ const l1Chain = defineChain({ id: L1.id, name: L1.name, nativeCurrency: { name: 
 const pc1 = createPublicClient({ chain: l1Chain, transport: http(L1.rpc, { retryCount: 3, retryDelay: 800 }) });
 const L1_GAS_RESERVE = parseUnits("0.003", 18);
 let bridgeTab = "in";
+// Simple network marks (letter badges, not the networks' official logos).
+const NET = { eth: `<span class="net n-eth" aria-hidden="true">Ξ</span>`, giwa: `<span class="net n-giwa" aria-hidden="true">G</span>` };
+const netAsset = (n, label) => `<span class="btn asset netasset" style="cursor:default">${NET[n]}<span class="na"><b>ETH</b><em>${label}</em></span></span>`;
 
 async function switchTo(hexId, add) {
   try { await W.provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hexId }] }); }
@@ -1515,7 +1518,7 @@ async function switchTo(hexId, add) {
 async function viewBridge(id) {
   app.innerHTML = `<div class="form" style="max-width:540px">
     <div><h1 style="font-size:40px">Bridge</h1><p class="muted" style="margin:10px 0 0">Move ETH from Ethereum Sepolia to GIWA Sepolia to start launching and trading. Deposits arrive in a few minutes.</p></div>
-    <div class="seg bseg" id="btabs"><button data-t="in" class="${bridgeTab === "in" ? "on" : ""}">Deposit</button><button data-t="out" class="${bridgeTab === "out" ? "on" : ""}">Withdraw</button></div>
+    <div class="seg bseg" id="btabs"><button data-t="in" class="${bridgeTab === "in" ? "on" : ""}">${NET.eth} Ethereum <span class="tarr">→</span> ${NET.giwa} GIWA</button><button data-t="out" class="${bridgeTab === "out" ? "on" : ""}">${NET.giwa} GIWA <span class="tarr">→</span> ${NET.eth} Ethereum</button></div>
     <div id="bbody"></div></div>`;
   $("#btabs").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; bridgeTab = b.dataset.t; $("#btabs").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); draw(); };
   const draw = () => (bridgeTab === "in" ? depositView(id) : withdrawView());
@@ -1524,7 +1527,7 @@ async function viewBridge(id) {
 
 function withdrawView() {
   $("#bbody").innerHTML = `<div class="card swap">
-    <div class="bnet"><div><span class="muted">From</span><b>GIWA Sepolia</b></div><span class="barrow">→</span><div><span class="muted">To</span><b>Ethereum Sepolia</b></div></div>
+    <div class="bnet"><div class="bn">${NET.giwa}<div><span class="muted">From</span><b>GIWA Sepolia</b></div></div><span class="barrow">→</span><div class="bn">${NET.eth}<div><span class="muted">To</span><b>Ethereum Sepolia</b></div></div></div>
     <p style="margin:0">Withdrawals from GIWA back to Ethereum go through a challenge period of about <b>7 days</b> and need three steps: start, prove, then finalize. GIWA's official bridge tracks all of them for you.</p>
     <a class="btn pri block" href="${OFFICIAL_BRIDGE}" target="_blank" rel="noopener">Open the official GIWA bridge ${ICON_OUT}</a>
     <div class="help">Want to leave GIWA quickly? You don't have to: test ETH on GIWA is free from the <a href="https://faucet.giwa.io/" target="_blank" rel="noopener">GIWA faucet</a>.</div></div>`;
@@ -1532,12 +1535,12 @@ function withdrawView() {
 
 function depositView(id) {
   $("#bbody").innerHTML = `<div class="card swap">
-    <div class="sbox"><div class="kv"><span>From <b>Ethereum Sepolia</b></span><span id="b1"></span></div>
-      <div class="srow"><input class="inp samt" id="bamt" inputmode="decimal" placeholder="0.0" /><span class="btn asset" style="cursor:default"><span class="avatar sm eth">Ξ</span><b>ETH</b></span></div>
+    <div class="sbox"><div class="kv"><span class="nlab">${NET.eth} From <b>Ethereum Sepolia</b></span><span id="b1"></span></div>
+      <div class="srow"><input class="inp samt" id="bamt" inputmode="decimal" placeholder="0.0" />${netAsset("eth", "Ethereum Sepolia")}</div>
       <div id="bquick" style="display:flex;gap:6px;flex-wrap:wrap">${["0.01", "0.05", "0.1"].map((v) => `<button class="btn sm" data-v="${v}">${v}</button>`).join("")}<button class="btn sm" data-max="1" title="All your Sepolia ETH, minus a little for gas">Max</button></div></div>
-    <div class="flip" style="cursor:default">↓</div>
-    <div class="sbox"><div class="kv"><span>To <b>GIWA Sepolia</b></span><span id="b2"></span></div>
-      <div class="srow"><div class="samt out-amt" id="bout">0.0</div><span class="btn asset" style="cursor:default"><span class="avatar sm eth">Ξ</span><b>ETH</b></span></div></div>
+    <div class="btn flip bflip" aria-hidden="true">↓</div>
+    <div class="sbox"><div class="kv"><span class="nlab">${NET.giwa} To <b>GIWA Sepolia</b></span><span id="b2"></span></div>
+      <div class="srow"><div class="samt out-amt" id="bout">0.0</div>${netAsset("giwa", "GIWA Sepolia")}</div></div>
     <div class="out" id="bq"><div class="kv"><span>Route</span><b>Official GIWA portal</b></div><div class="kv"><span>Arrives in</span><b>~1–3 minutes</b></div><div class="kv"><span>Bridge fee</span><b>None, only Sepolia gas</b></div></div>
     <button class="btn pri block" id="bgo" data-wl="Bridge to GIWA">${W.address ? "Bridge to GIWA" : "Connect wallet"}</button>
     <div class="help">Your wallet switches to Ethereum Sepolia to sign the deposit, then back to GIWA. Need Sepolia ETH? Try the <a href="https://cloud.google.com/application/web3/faucet/ethereum/sepolia" target="_blank" rel="noopener">Sepolia faucet</a>. Withdrawing back takes ~7 days, see the other tab.</div>

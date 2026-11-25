@@ -348,4 +348,19 @@ a.prow2:hover{text-decoration:none;background:var(--panel2)}
 .bseg{display:flex}.bseg button{flex:1}
 .bnet{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}
 .bnet div{display:grid;gap:2px}.bnet span{font-size:12px}.barrow{font-size:20px;color:var(--fire)}
+.net{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;font-size:12px;font-weight:800;line-height:1;flex:none;vertical-align:middle}
+.n-eth{background:#6f7fd8;color:#fff}
+.n-giwa{background:var(--fire);color:var(--on-fire)}
+.bseg button{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap}
+.bseg .net{width:18px;height:18px;font-size:10px}
+.tarr{opacity:.6}
+.netasset{display:inline-flex;align-items:center;gap:8px}
+.netasset .na{display:grid;line-height:1.15;text-align:left}
+.netasset .na b{color:var(--ink);font-size:15px}
+.netasset .na em{font-style:normal;font-size:11px;color:var(--mute)}
+.nlab{display:inline-flex;align-items:center;gap:6px}
+.nlab .net{width:18px;height:18px;font-size:10px}
+.bflip{cursor:default;pointer-events:none;display:grid;place-items:center;height:36px;width:36px;border-radius:50%}
+.bn{display:flex;align-items:center;gap:8px}
+@media (max-width:600px){.bseg button{font-size:13px;padding-left:6px;padding-right:6px}}
 [hidden]{display:none!important}
