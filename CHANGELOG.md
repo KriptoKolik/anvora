@@ -11,6 +11,8 @@
 - **ETH ⇄ WETH on the Swap page**: pick WETH to wrap or unwrap 1:1, no separate page needed.
 - **Wallet stays connected** after a page refresh (remembers which wallet you used).
 - **New Portfolio**: a one-line summary (holdings value, fees to claim, launches, trades) and tabs for Holdings, Earnings, Launches and Activity. Any wallet can be viewed at #/portfolio/<address>.
+- **Quick buy amounts**: 0.1 and Max (all WETH + ETH, keeping a little ETH for gas).
+- **Token page on mobile**: the Buy/Sell box now sits right under the token header; compact header and stats; graduated tokens show a single "Graduated" line instead of an empty curve.
 - **$ANVORA graduated** into a permanent Ammora pool; pool buys and sells verified on-chain.
 
 ## Earlier
