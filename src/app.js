@@ -220,6 +220,7 @@ async function connect() {
   const [addr] = await p.request({ method: "eth_requestAccounts" });
   if (!addr) throw new Error("No account selected.");
   attach(p, addr, await p.request({ method: "eth_chainId" }));
+  store.set("anvora.wallet", WALLETS.find((w) => w.provider === p)?.info.rdns || "injected");
   renderHeader();
 }
 async function ensureChain() {
@@ -239,11 +240,26 @@ async function ensureChain() {
 }
 async function ensureWallet() { if (!W.address) await connect(); await ensureChain(); return W.address; }
 function disconnect() { store.set("anvora.disconnected", true); W.address = null; W.wc = null; renderHeader(); render(); }
-setTimeout(async () => {   // silent reconnect if the wallet already trusts this site
-  const p = WALLETS[0]?.provider || window.ethereum;
-  if (!p || store.get("anvora.disconnected")) return;
-  try { const [a] = await p.request({ method: "eth_accounts" }); if (a) { attach(p, a, await p.request({ method: "eth_chainId" })); renderHeader(); render(); } } catch {}
-}, 80);
+// Silent reconnect after a refresh: ask the wallet used last time (then any other) for already-approved accounts.
+// eth_accounts never opens a popup. Wallet extensions announce themselves a moment after load, so retry briefly.
+async function silentReconnect() {
+  if (store.get("anvora.disconnected")) return;
+  const last = store.get("anvora.wallet");
+  for (let i = 0; i < 6 && !W.address; i++) {
+    const ordered = [...WALLETS].sort((a, b) => (b.info.rdns === last) - (a.info.rdns === last)).map((w) => w.provider);
+    if (window.ethereum && !ordered.includes(window.ethereum)) ordered.push(window.ethereum);
+    for (const p of ordered) {
+      try {
+        const [a] = await p.request({ method: "eth_accounts" });
+        if (a && !W.address) { attach(p, a, await p.request({ method: "eth_chainId" })); renderHeader(); render(); return; }
+      } catch {}
+    }
+    if (last && !WALLETS.some((w) => w.info.rdns === last) && i < 5) { await sleep(300); continue; }
+    if (ordered.length) return;
+    await sleep(300);
+  }
+}
+setTimeout(silentReconnect, 150);
 
 function renderHeader() {
   const w = $("#wallet");
