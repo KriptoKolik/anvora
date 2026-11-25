@@ -18,4 +18,5 @@ await build({
 });
 await copyFile("src/index.html", "dist/index.html");
 await copyFile("src/style.css", "dist/style.css");
+await copyFile("src/og.jpg", "dist/og.jpg"); // link preview image
 console.log("Built dist/. Preview with: npm run preview");

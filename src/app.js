@@ -404,7 +404,8 @@ async function explorerLogs({ address, topic0, topic1, topic2, fromBlock = FACTO
   const out = [];
   let from = fromBlock;
   for (let page = 0; page < 8; page++) {
-    const q = new URLSearchParams({ module: "logs", action: "getLogs", fromBlock: String(from), toBlock: "latest", address });
+    const q = new URLSearchParams({ module: "logs", action: "getLogs", fromBlock: String(from), toBlock: "latest" });
+    if (address) q.set("address", address);
     if (topic0) q.set("topic0", topic0);
     if (topic1) { q.set("topic1", topic1); q.set("topic0_1_opr", "and"); }
     if (topic2) { q.set("topic2", topic2); q.set("topic0_2_opr", "and"); }
@@ -503,7 +504,7 @@ async function viewExplore(id) {
   <div class="toolbar" id="list">
     <div class="seg" id="filter">${[["all", "All"], ["live", "Live"], ["near", "Near graduation"], ["grad", "Graduated"], ["site", `On ${SITE.name}`]]
       .map(([k, n]) => `<button data-k="${k}" class="${ui.filter === k ? "on" : ""}">${n}</button>`).join("")}</div>
-    <div class="seg" id="sort">${[["hot", "Most raised"], ["new", "Newest"], ["mcap", "Market cap"], ["prog", "Progress"]].map(([k, n]) => `<button data-k="${k}" class="${ui.sort === k ? "on" : ""}">${n}</button>`).join("")}</div>
+    <div class="seg" id="sort">${[["trend", "Trending"], ["hot", "Most raised"], ["new", "Newest"], ["mcap", "Market cap"], ["prog", "Progress"]].map(([k, n]) => `<button data-k="${k}" class="${ui.sort === k ? "on" : ""}">${n}</button>`).join("")}</div>
   </div>
   <div class="toolbar">
     <input class="inp search" id="q" placeholder="Search name, ticker or address" value="${esc(ui.q)}" />
@@ -545,6 +546,7 @@ async function viewExplore(id) {
     else if (ui.hideTest) rows = rows.filter((x) => isSiteLaunch(x) || (!x.junk && !x.test));
     const m = (x) => (x.junk ? -1 : x.mcap);
     if (ui.sort === "hot") rows = [...rows].sort((a, b) => b.raised - a.raised || b.block - a.block);
+    if (ui.sort === "trend") rows = [...rows].sort((a, b) => (b.d24?.vol || 0) - (a.d24?.vol || 0) || (b.d24?.trades || 0) - (a.d24?.trades || 0) || b.raised - a.raised);
     if (ui.sort === "mcap") rows = [...rows].sort((a, b) => m(b) - m(a));
     if (ui.sort === "prog") rows = [...rows].sort((a, b) => b.progress - a.progress);
     rows = [...rows.filter((x) => isOfficial(x.curve, x.token)), ...rows.filter((x) => !isOfficial(x.curve, x.token))];
@@ -559,14 +561,74 @@ async function viewExplore(id) {
   $("#q").oninput = (e) => { ui.q = e.target.value; reset(); };
   $("#hide").onchange = (e) => { ui.hideTest = e.target.checked; reset(); };
   draw();
+  // 24h volume/change arrive a moment later; redraw the cards when they do.
+  load24h(list).then((m) => { if (id !== renderId) return; list.forEach((x) => (x.d24 = m.get(x.curve.toLowerCase()) || null)); draw(); }).catch(() => {});
 }
+// 24h activity across all launches: one explorer query per Swap event type, grouped by curve/pool.
+let act24 = { at: 0, map: new Map() };
+async function load24h(list) {
+  if (Date.now() - act24.at < 60_000 && act24.map.size) return act24.map;
+  const since = Math.floor(Date.now() / 1000) - 86_400;
+  let fromBlock;
+  try {
+    const j = await fetch(`${EXPLORER}/api?module=block&action=getblocknobytime&timestamp=${since}&closest=before`).then((r) => r.json());
+    fromBlock = Number(j.result?.blockNumber);
+  } catch {}
+  if (!fromBlock) fromBlock = Math.max(FACTORY_START, Number(await pc.getBlockNumber()) - 86_400);
+  const byCurve = new Map(list.map((x) => [x.curve.toLowerCase(), x]));
+  const byPool = new Map(list.filter((x) => x.pool && x.pool !== zeroAddress).map((x) => [x.pool.toLowerCase(), x]));
+  const map = new Map();
+  const add = (x, weth, price, t) => {
+    if (!x) return;
+    const k = x.curve.toLowerCase();
+    const m = map.get(k) || { vol: 0, trades: 0, first: null, last: null };
+    m.vol += weth; m.trades++;
+    if (!m.first || t < m.first.t) m.first = { t, price };
+    if (!m.last || t >= m.last.t) m.last = { t, price };
+    map.set(k, m);
+  };
+  const poolTopics = POOL_SWAP_EVENTS.map((e) => toEventSelector(e));
+  const [curveLogs, ...poolLogs] = await Promise.all([
+    explorerLogs({ topic0: SWAP_TOPIC, fromBlock }).catch(() => []),
+    ...poolTopics.map((t) => explorerLogs({ topic0: t, fromBlock }).catch(() => [])),
+  ]);
+  for (const l of curveLogs) {
+    const x = byCurve.get(String(l.address).toLowerCase()); if (!x) continue;
+    try {
+      const a = decodeEventLog({ abi: A.ammoraLaunchPoolV4Abi, data: l.data, topics: l.topics.filter(Boolean) }).args;
+      const weth = a.baseForQuote ? a.amountOut : a.amountIn, tokens = a.baseForQuote ? a.amountIn : a.amountOut;
+      if (!tokens) continue;
+      add(x, Number(formatUnits(weth, 18)), Number(formatUnits(weth, 18)) / Number(formatUnits(tokens, x.decimals)), Number(l.timeStamp));
+    } catch {}
+  }
+  for (const l of poolLogs.flat()) {
+    const x = byPool.get(String(l.address).toLowerCase()); if (!x) continue;
+    try {
+      const a = decodeEventLog({ abi: POOL_SWAP_EVENTS, data: l.data, topics: l.topics.filter(Boolean) }).args;
+      const sell = a.tokenIn.toLowerCase() === x.token.toLowerCase();
+      const weth = sell ? a.amountOut : a.amountIn, tokens = sell ? a.amountIn : a.amountOut;
+      if (!tokens) continue;
+      add(x, Number(formatUnits(weth, 18)), Number(formatUnits(weth, 18)) / Number(formatUnits(tokens, x.decimals)), Number(l.timeStamp));
+    } catch {}
+  }
+  for (const [k, m] of map) {
+    const x = byCurve.get(k);
+    // Change: from the first fill in the window to now (curve's live price, or the last pool fill once graduated).
+    const now = x.status === 1 && x.price ? x.price : m.last.price;
+    m.change = m.first.price > 0 ? now / m.first.price - 1 : 0;
+  }
+  act24 = { at: Date.now(), map };
+  return map;
+}
+const pctTxt = (c) => `${c >= 0 ? "+" : ""}${Math.abs(c) >= 10 ? fmt(c * 100) : (c * 100).toFixed(1)}%`;
 const card = (x) => `
   <a class="card tcard" href="#/token/${x.curve}">
     <div class="thead">${avatar(x)}<div style="flex:1;min-width:0"><b>${esc(x.name || x.meta?.name || "Unnamed")}${verTag(x.curve, x.token)}</b><span class="muted mono">$${esc(x.symbol || "?")}</span></div><div class="tbadges">${isNew(x) ? newBadge : ""}${statusBadge(x.status)}${isOfficial(x.curve, x.token) ? officialBadge : ""}</div></div>
     ${x.meta?.description ? `<div class="muted tdesc">${esc(x.meta.description)}</div>` : ""}
     <div class="tnums"><div><span>Market cap</span><b>${x.junk ? "—" : `${fmt(x.mcap)} ETH`}</b></div><div><span>Raised</span><b>${fmt(x.raised)} WETH</b></div></div>
+    ${x.d24 && x.d24.vol > 0 ? `<div class="t24"><span>24h</span><b>${fmt(x.d24.vol)} WETH vol</b><span class="muted">· ${x.d24.trades} trade${x.d24.trades === 1 ? "" : "s"}</span><em class="${x.d24.change >= 0 ? "up" : "down"}">${pctTxt(x.d24.change)}</em></div>` : ""}
     <div class="tprog"><div class="bar"><i style="width:${(x.progress * 100).toFixed(1)}%"></i></div><b>${(x.progress * 100).toFixed(x.progress >= 1 ? 0 : 1)}%</b></div>
-    <div class="kv tfoot"><span>Creator ${short(x.creator)}</span><span>${x.time ? ago(x.time) : `block ${x.block}`}</span></div>
+    <div class="kv tfoot"><span>Creator <span class="clink" data-href="#/portfolio/${x.creator}" title="See this creator's launches and holdings">${short(x.creator)}</span></span><span>${x.time ? ago(x.time) : `block ${x.block}`}</span></div>
   </a>`;
 
 /* ───────────── view: token ───────────── */
@@ -632,10 +694,11 @@ async function viewToken(id, arg) {
       </div>`}
       <div class="card"><h3>Price</h3><div class="chart" id="chart"><div class="muted" style="padding:20px">Loading trades…</div></div></div>
       <div class="card"><h3 style="margin-bottom:8px">Recent trades</h3><div class="scroll" id="trades"><div class="muted">Loading…</div></div></div>
+      <div class="card"><div class="hhead"><h3>Top holders</h3><span class="muted" id="hcount"></span></div><div id="holders"><div class="muted">Loading…</div></div></div>
       <div class="card" style="display:grid;gap:8px;font-size:13.5px">
         <div class="kv"><span>Token</span><a class="mono" href="${addrUrl(tok.address)}" target="_blank" rel="noopener">${short(tok.address)} ↗</a></div>
         <div class="kv"><span>Bonding curve</span><a class="mono" href="${addrUrl(curve)}" target="_blank" rel="noopener">${short(curve)} ↗</a></div>
-        <div class="kv"><span>Creator</span><a class="mono" href="${addrUrl(st.creator)}" target="_blank" rel="noopener">${short(st.creator)} ↗</a></div>
+        <div class="kv"><span>Creator</span><span><a class="mono" href="#/portfolio/${st.creator}" title="See this creator's launches and holdings">${short(st.creator)}</a> <a class="muted" href="${addrUrl(st.creator)}" target="_blank" rel="noopener" title="View on explorer">↗</a></span></div>
         ${st.canonicalPool && st.canonicalPool !== zeroAddress ? `<div class="kv"><span>Ammora pool</span><a class="mono" href="${addrUrl(st.canonicalPool)}" target="_blank" rel="noopener">${short(st.canonicalPool)} ↗</a></div>` : ""}
         <div class="kv"><span>Total supply</span><b>${fu(tok.supply, tok.decimals)}</b></div>
       </div>
@@ -660,6 +723,54 @@ async function viewToken(id, arg) {
   else if (st.status === 3) tradeBox(ctx, poolEngine(ctx));
   else $("#trade").innerHTML = `<h3>Trading</h3><div class="muted">This curve is not active.</div>`;
   loadTrades(ctx, id);
+  loadHolders(ctx, id);
+}
+
+// Top holders from the explorer. Contracts that hold supply by design (curve, pool) are labelled, and
+// the creator is marked, so buyers can see how concentrated the supply really is.
+async function loadHolders(ctx, id) {
+  const box = () => $("#holders");
+  const tokenAddr = ctx.tok.address;
+  let items = [], count = null;
+  try {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 20_000);
+    const j = await fetch(`${EXPLORER}/api/v2/tokens/${tokenAddr}/holders`, { signal: ctl.signal }).then((r) => r.json()).finally(() => clearTimeout(t));
+    items = (j.items || []).map((h) => ({ addr: h.address?.hash, contract: !!h.address?.is_contract, value: BigInt(h.value || 0) }));
+    fetch(`${EXPLORER}/api/v2/tokens/${tokenAddr}/counters`).then((r) => r.json()).then((c) => {
+      count = Number(c.token_holders_count); if (id === renderId && $("#hcount") && count) $("#hcount").textContent = `${fmt(count)} holders`;
+    }).catch(() => {});
+  } catch {
+    try {
+      const q = new URLSearchParams({ module: "token", action: "getTokenHolders", contractaddress: tokenAddr, page: "1", offset: "20" });
+      const j = await fetch(`${EXPLORER}/api?${q}`).then((r) => r.json());
+      items = (Array.isArray(j.result) ? j.result : []).map((h) => ({ addr: h.address, contract: false, value: BigInt(h.value || 0) }));
+    } catch {}
+  }
+  if (id !== renderId || !box()) return;
+  items = items.filter((h) => h.addr && h.value > 0n).sort((a, b) => (b.value > a.value ? 1 : b.value < a.value ? -1 : 0)).slice(0, 20);
+  if (!items.length) { box().innerHTML = `<div class="muted">Holder data isn't available right now.</div>`; return; }
+  const supply = ctx.tok.supply || items.reduce((a, h) => a + h.value, 0n);
+  const lc = (a) => String(a || "").toLowerCase();
+  const curve = lc(ctx.curve), pool = lc(ctx.st.canonicalPool), creator = lc(ctx.st.creator), me = lc(W.address);
+  const tag = (h) => {
+    const a = lc(h.addr);
+    if (a === curve) return `<span class="htag">Bonding curve</span>`;
+    if (a === pool) return `<span class="htag">Ammora pool</span>`;
+    if (a === zeroAddress || a === "0x000000000000000000000000000000000000dead") return `<span class="htag">Burned</span>`;
+    const parts = [];
+    if (a === creator) parts.push(`<span class="htag hc">Creator</span>`);
+    if (me && a === me) parts.push(`<span class="htag hy">You</span>`);
+    if (!parts.length && h.contract) parts.push(`<span class="htag">Contract</span>`);
+    return parts.join("");
+  };
+  box().innerHTML = `<div class="hlist">${items.map((h, i) => {
+    const pct = Number((h.value * 1_000_000n) / (supply || 1n)) / 10_000;
+    return `<div class="hrow"><span class="hn">${i + 1}</span>
+      <span class="haddr"><a class="mono" href="${addrUrl(h.addr)}" target="_blank" rel="noopener">${short(h.addr)}</a>${tag(h)}</span>
+      <span class="hbar"><i style="width:${Math.min(100, pct).toFixed(2)}%"></i></span>
+      <b>${pct >= 0.01 ? pct.toFixed(2) : "<0.01"}%</b></div>`;
+  }).join("")}</div>
+  <div class="help" style="margin-top:8px">Share of total supply. The bonding curve and the Ammora pool hold the unsold tokens and liquidity; they are contracts, not people.</div>`;
 }
 
 async function loadTrades(ctx, id) {
@@ -1762,6 +1873,11 @@ async function render() {
   } catch (e) { if (id === renderId) app.innerHTML = `<div class="empty">Something went wrong: ${esc(errText(e))}</div>`; }
 }
 window.addEventListener("hashchange", () => { lastChart = null; render(); });
+// Links inside clickable cards (e.g. the creator on a token card) can't be nested <a>; route them here.
+document.addEventListener("click", (e) => {
+  const c = e.target.closest("[data-href]"); if (!c) return;
+  e.preventDefault(); e.stopPropagation(); location.hash = c.dataset.href;
+}, true);
 applyTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
 const fl = [SITE.links?.x && `<a href="${esc(SITE.links.x)}" target="_blank" rel="noopener">X</a>`, SITE.links?.github && `<a href="${esc(SITE.links.github)}" target="_blank" rel="noopener">GitHub</a>`].filter(Boolean);
 if (fl.length) $("#footlinks").innerHTML += " · " + fl.join(" · ");

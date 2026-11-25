@@ -19,5 +19,11 @@
 - **$ANVORA v2** is the new official token (0.5 WETH graduation, launched with a same-transaction first buy). The first $ANVORA stays listed as v1.
 - **$ANVORA graduated** into a permanent Ammora pool; pool buys and sells verified on-chain.
 
+## 2026-11-26
+- **Top holders** on every token page: share of supply, with the bonding curve, Ammora pool, creator and you labelled.
+- **Creator links**: tap a creator's address to see their launches and holdings.
+- **24h stats on cards**: volume, trade count and price change, plus a new **Trending** sort.
+- **Link preview**: sharing anvora.vercel.app on X now shows a proper card with the Anvora image.
+
 ## Earlier
 - Swap page, Official badge, hidden test tokens, $ANVORA X link fix, launch wording, mobile menu, trades show the real trader.
