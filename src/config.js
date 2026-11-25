@@ -24,7 +24,7 @@ export const SITE = {
 
   // Official launches: shown with an "Official" badge and pinned to the top of Explore.
   officialTokens: [
-    // the new official $ANVORA goes here once launched
+    "0xe2a84193088b5061A793601739e0899A31f8Ecb6", // $ANVORA (v2), the official Anvora token (Config #110, 0.5 WETH)
   ],
 
   // Small version tags shown next to a token's name (curve or token address → label).
@@ -35,7 +35,8 @@ export const SITE = {
   // Corrections for on-chain metadata, keyed by curve address. On-chain metadata can't be
   // edited, so this site shows these values instead (other sites still show the on-chain ones).
   metadataOverrides: {
-    "0x39F9819744EE83f337aab7269e14B06a1922E5D5": { twitter: "https://x.com/anvoraapp" }, // $ANVORA
+    // $ANVORA v1: links removed and description replaced on this site (the official token is now v2).
+    "0x39F9819744EE83f337aab7269e14B06a1922E5D5": { website: "", twitter: "", telegram: "", description: "The first Anvora token (v1). It graduated into a permanent Ammora pool. The official Anvora token is now $ANVORA v2." },
   },
 
   // Launches hidden from this site's lists (curve or token addresses). They stay on-chain and
