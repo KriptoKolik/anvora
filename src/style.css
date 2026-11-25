@@ -275,7 +275,7 @@ th{color:var(--mute);font-weight:600}td.r,th.r{text-align:right;white-space:nowr
 .ss-v b{font-size:18px;font-weight:800}
 .ss-v i{font-style:normal;opacity:.4}
 .tcard{padding:14px 16px;gap:9px}
-.tbadges{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.tbadges{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:132px;flex-shrink:0}
 .tdesc{font-size:12.5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;margin-top:-2px}
 .tnums{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .tnums div{display:grid;gap:1px}
