@@ -587,11 +587,26 @@ async function load24h(list) {
     if (!m.last || t >= m.last.t) m.last = { t, price };
     map.set(k, m);
   };
+  // Explorer first (one query per event type, any address); if it returns nothing, read the chain directly.
   const poolTopics = POOL_SWAP_EVENTS.map((e) => toEventSelector(e));
-  const [curveLogs, ...poolLogs] = await Promise.all([
+  let [curveLogs, ...poolLogs] = await Promise.all([
     explorerLogs({ topic0: SWAP_TOPIC, fromBlock }).catch(() => []),
     ...poolTopics.map((t) => explorerLogs({ topic0: t, fromBlock }).catch(() => [])),
   ]);
+  if (!curveLogs.length && !poolLogs.flat().length) {
+    const head = await pc.getBlockNumber();
+    const [hb, ob] = await Promise.all([pc.getBlock({ blockNumber: head }), pc.getBlock({ blockNumber: head - 10_000n })]);
+    const spb = Math.max(0.2, Number(hb.timestamp - ob.timestamp) / 10_000); // seconds per block
+    const start = BigInt(Math.max(Number(head) - Math.ceil(86_400 / spb), FACTORY_START));
+    const tsOf = (bn) => Number(hb.timestamp) - Math.round(Number(head - BigInt(bn)) * spb);
+    const windows = [];
+    for (let to = head; to >= start; to -= 10_000n) windows.push([to - 9_999n < start ? start : to - 9_999n, to]);
+    const got = await Promise.all(windows.map(([f, t]) => pc.getLogs({ events: [SWAP_EVENT, ...POOL_SWAP_EVENTS], fromBlock: f, toBlock: t }).catch(() => [])));
+    const all = got.flat().map((l) => ({ address: l.address, data: l.data, topics: l.topics, timeStamp: tsOf(l.blockNumber) }));
+    const sw = SWAP_TOPIC.toLowerCase();
+    curveLogs = all.filter((l) => String(l.topics[0]).toLowerCase() === sw);
+    poolLogs = [all.filter((l) => String(l.topics[0]).toLowerCase() !== sw)];
+  }
   for (const l of curveLogs) {
     const x = byCurve.get(String(l.address).toLowerCase()); if (!x) continue;
     try {

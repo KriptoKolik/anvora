@@ -387,4 +387,9 @@ h2 .vtag{font-size:13px;vertical-align:6px}
 .t24 b{font-weight:700}
 .t24 em{font-style:normal;font-weight:800;margin-left:auto}
 .t24 em.up{color:#4ade80}.t24 em.down{color:#f87171}
+@media (max-width:600px){
+  .ptabs{gap:0;justify-content:space-between}
+  .ptabs button{font-size:14px;padding:9px 6px;gap:4px}
+  .ptabs em{font-size:10px;padding:0 5px}
+}
 [hidden]{display:none!important}
