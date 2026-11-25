@@ -328,6 +328,9 @@ async function sendTx({ to, data, value = 0n }, label = "Transaction") {
 }
 const balanceOf = (token, who) => pc.readContract({ address: token, abi: erc20Abi, functionName: "balanceOf", args: [who] });
 const allowance = (token, owner, spender) => pc.readContract({ address: token, abi: erc20Abi, functionName: "allowance", args: [owner, spender] });
+// "Max" buy: all WETH plus all ETH except a small reserve kept for gas.
+const GAS_RESERVE = parseUnits("0.001", 18);
+const maxBuy = (b, ethOnly = false) => { const e = b.eth > GAS_RESERVE ? b.eth - GAS_RESERVE : 0n; return ethOnly ? e : e + b.weth; };
 const wrapTx = (amt) => ({ to: WETH, data: encodeFunctionData({ abi: wethAbi, functionName: "deposit" }), value: amt });
 const unwrapTx = (amt) => ({ to: WETH, data: encodeFunctionData({ abi: wethAbi, functionName: "withdraw", args: [amt] }) });
 
@@ -812,12 +815,13 @@ function tradeBox(ctx, eng) {
   const showBal = () => {
     if (!bals) return;
     $("#bal").innerHTML = t.side === "buy" ? `Balance: ${fu(bals.eth, 18)} ETH + ${fu(bals.weth, 18)} WETH` : `Balance: ${fu(bals.tk, ctx.tok.decimals)} ${esc(ctx.tok.symbol)}`;
-    $("#quick").innerHTML = t.side === "buy" ? ["0.001", "0.005", "0.01", "0.1"].map((v) => `<button class="btn sm" data-v="${v}">${v}</button>`).join("")
+    $("#quick").innerHTML = t.side === "buy" ? ["0.001", "0.005", "0.01", "0.1"].map((v) => `<button class="btn sm" data-v="${v}">${v}</button>`).join("") + `<button class="btn sm" data-max="1" title="All your WETH and ETH, minus a little ETH for gas">Max</button>`
       : [25, 50, 100].map((p) => `<button class="btn sm" data-p="${p}">${p}%</button>`).join("");
   };
   $("#quick").onclick = (e) => {
     const b = e.target.closest("button"); if (!b) return;
     if (b.dataset.v) $("#amt").value = b.dataset.v;
+    else if (b.dataset.max) { if (bals) $("#amt").value = formatUnits(maxBuy(bals), 18); }
     else if (bals) $("#amt").value = formatUnits(bals.tk * BigInt(b.dataset.p) / 100n, ctx.tok.decimals);
     requote();
   };
@@ -1347,7 +1351,7 @@ async function viewSwap(id, arg) {
     const ethTxt = isWrap() ? `${fu(bals.eth, 18)} ETH` : `${fu(bals.eth, 18)} ETH + ${fu(bals.weth, 18)} WETH`, tokTxt = `${fu(bals.tk, ctx.tok.decimals)} ${ctx.tok.symbol}`;
     $("#sbal1").textContent = sw.buy ? ethTxt : tokTxt;
     $("#sbal2").textContent = sw.buy ? tokTxt : ethTxt;
-    $("#squick").innerHTML = sw.buy ? ["0.001", "0.005", "0.01", "0.1"].map((v) => `<button class="btn sm" data-v="${v}">${v}</button>`).join("")
+    $("#squick").innerHTML = sw.buy ? ["0.001", "0.005", "0.01", "0.1"].map((v) => `<button class="btn sm" data-v="${v}">${v}</button>`).join("") + `<button class="btn sm" data-max="1" title="All your ${isWrap() ? "" : "WETH and "}ETH, minus a little ETH for gas">Max</button>`
       : [25, 50, 100].map((v) => `<button class="btn sm" data-p="${v}">${v}%</button>`).join("");
   };
   const loadBals = async () => {
@@ -1447,6 +1451,7 @@ async function viewSwap(id, arg) {
   $("#squick").onclick = (e) => {
     const b = e.target.closest("button"); if (!b) return;
     if (b.dataset.v) $("#samt").value = b.dataset.v;
+    else if (b.dataset.max) { if (bals) $("#samt").value = formatUnits(maxBuy(bals, isWrap()), 18); }
     else if (bals && ctx) $("#samt").value = formatUnits(bals.tk * BigInt(b.dataset.p) / 100n, ctx.tok.decimals);
     requote();
   };
