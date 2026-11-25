@@ -13,7 +13,7 @@ export const SITE = {
   launchConfigId: 108n, // created on #/setup by the owner wallet (GIWA Sepolia): 0.25 WETH graduation target
 
   // Earlier Configs of this site. Their launches still count as "On Anvora" (filter, counter).
-  previousConfigIds: [96n], // #96: 0.05 WETH graduation target (Nov 2026)
+  previousConfigIds: [96n, 110n], // #96: 0.05 WETH target (Nov 2026) · #110: 0.5 WETH, official $ANVORA v2
 
   // Config the setup page copies (curve shape, fees, vesting). null = pick the newest enabled
   // Ammora Config automatically. (Template #6 has been disabled by Ammora.)
