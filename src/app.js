@@ -1485,6 +1485,119 @@ async function viewSwap(id, arg) {
   else $("#sq").innerHTML = `<span class="muted">No tradable tokens found yet.</span>`;
 }
 
+/* ───────────── view: bridge ───────────── */
+// Ethereum Sepolia → GIWA Sepolia ETH deposits through GIWA's OptimismPortal (OP Stack, the method in
+// GIWA's own bridging docs). Withdrawals take ~7 days (prove + finalize), so they go to GIWA's official bridge.
+const L1 = {
+  id: 11155111, hex: "0xaa36a7", name: "Ethereum Sepolia",
+  rpc: "https://ethereum-sepolia-rpc.publicnode.com", explorer: "https://eth-sepolia.blockscout.com",
+  // OptimismPortal of GIWA Sepolia on Ethereum Sepolia (verified on-chain: systemConfig().l2ChainId() = 91342).
+  portal: "0x956962C34687A954e611A83619ABaA37Ce6bC78A",
+};
+const OFFICIAL_BRIDGE = "https://sepolia-bridge.giwa.io/";
+const portalAbi = [{ type: "function", name: "depositTransaction", stateMutability: "payable",
+  inputs: [{ name: "_to", type: "address" }, { name: "_value", type: "uint256" }, { name: "_gasLimit", type: "uint64" }, { name: "_isCreation", type: "bool" }, { name: "_data", type: "bytes" }], outputs: [] }];
+const l1Chain = defineChain({ id: L1.id, name: L1.name, nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: [L1.rpc] } } });
+const pc1 = createPublicClient({ chain: l1Chain, transport: http(L1.rpc, { retryCount: 3, retryDelay: 800 }) });
+const L1_GAS_RESERVE = parseUnits("0.003", 18);
+let bridgeTab = "in";
+
+async function switchTo(hexId, add) {
+  try { await W.provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hexId }] }); }
+  catch (e) {
+    if (e.code === 4902 || /Unrecognized|not been added|unknown chain/i.test(e.message || "")) await W.provider.request({ method: "wallet_addEthereumChain", params: [add] });
+    else throw e;
+  }
+  W.chainId = Number(await W.provider.request({ method: "eth_chainId" }));
+  renderHeader();
+}
+
+async function viewBridge(id) {
+  app.innerHTML = `<div class="form" style="max-width:540px">
+    <div><h1 style="font-size:40px">Bridge</h1><p class="muted" style="margin:10px 0 0">Move ETH from Ethereum Sepolia to GIWA Sepolia to start launching and trading. Deposits arrive in a few minutes.</p></div>
+    <div class="seg bseg" id="btabs"><button data-t="in" class="${bridgeTab === "in" ? "on" : ""}">Deposit to GIWA</button><button data-t="out" class="${bridgeTab === "out" ? "on" : ""}">Withdraw to Ethereum</button></div>
+    <div id="bbody"></div></div>`;
+  $("#btabs").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; bridgeTab = b.dataset.t; $("#btabs").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); draw(); };
+  const draw = () => (bridgeTab === "in" ? depositView(id) : withdrawView());
+  draw();
+}
+
+function withdrawView() {
+  $("#bbody").innerHTML = `<div class="card swap">
+    <div class="bnet"><div><span class="muted">From</span><b>GIWA Sepolia</b></div><span class="barrow">→</span><div><span class="muted">To</span><b>Ethereum Sepolia</b></div></div>
+    <p style="margin:0">Withdrawals from GIWA back to Ethereum go through a challenge period of about <b>7 days</b> and need three steps: start, prove, then finalize. GIWA's official bridge tracks all of them for you.</p>
+    <a class="btn pri block" href="${OFFICIAL_BRIDGE}" target="_blank" rel="noopener">Open the official GIWA bridge ${ICON_OUT}</a>
+    <div class="help">Want to leave GIWA quickly? You don't have to: test ETH on GIWA is free from the <a href="https://faucet.giwa.io/" target="_blank" rel="noopener">GIWA faucet</a>.</div></div>`;
+}
+
+function depositView(id) {
+  $("#bbody").innerHTML = `<div class="card swap">
+    <div class="sbox"><div class="kv"><span>From <b>Ethereum Sepolia</b></span><span id="b1"></span></div>
+      <div class="srow"><input class="inp samt" id="bamt" inputmode="decimal" placeholder="0.0" /><span class="btn asset" style="cursor:default"><span class="avatar sm eth">Ξ</span><b>ETH</b></span></div>
+      <div id="bquick" style="display:flex;gap:6px;flex-wrap:wrap">${["0.01", "0.05", "0.1"].map((v) => `<button class="btn sm" data-v="${v}">${v}</button>`).join("")}<button class="btn sm" data-max="1" title="All your Sepolia ETH, minus a little for gas">Max</button></div></div>
+    <div class="flip" style="cursor:default">↓</div>
+    <div class="sbox"><div class="kv"><span>To <b>GIWA Sepolia</b></span><span id="b2"></span></div>
+      <div class="srow"><div class="samt out-amt" id="bout">0.0</div><span class="btn asset" style="cursor:default"><span class="avatar sm eth">Ξ</span><b>ETH</b></span></div></div>
+    <div class="out" id="bq"><div class="kv"><span>Route</span><b>GIWA OptimismPortal (official OP Stack bridge)</b></div><div class="kv"><span>Arrives in</span><b>~1–3 minutes</b></div><div class="kv"><span>Bridge fee</span><b>None, only Sepolia gas</b></div></div>
+    <button class="btn pri block" id="bgo" data-wl="Bridge to GIWA">${W.address ? "Bridge to GIWA" : "Connect wallet"}</button>
+    <div class="help">Your wallet switches to Ethereum Sepolia to sign the deposit, then back to GIWA. Need Sepolia ETH? Try the <a href="https://cloud.google.com/application/web3/faucet/ethereum/sepolia" target="_blank" rel="noopener">Sepolia faucet</a>. Withdrawing back takes ~7 days, see the other tab.</div>
+  </div>`;
+  let bals = null;
+  const loadBals = async () => {
+    if (!W.address) return;
+    try {
+      const [b1, b2] = await Promise.all([pc1.getBalance({ address: W.address }), pc.getBalance({ address: W.address })]);
+      bals = { b1, b2 };
+      if ($("#b1")) { $("#b1").textContent = `Balance: ${fu(b1, 18, 5)} ETH`; $("#b2").textContent = `Balance: ${fu(b2, 18, 5)} ETH`; }
+    } catch {}
+  };
+  const sync = () => { $("#bout").textContent = $("#bamt").value.trim() || "0.0"; };
+  $("#bamt").oninput = sync;
+  $("#bquick").onclick = (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.v) $("#bamt").value = b.dataset.v;
+    else if (bals) $("#bamt").value = formatUnits(bals.b1 > L1_GAS_RESERVE ? bals.b1 - L1_GAS_RESERVE : 0n, 18);
+    sync();
+  };
+  loadBals();
+  $("#bgo").onclick = async () => {
+    const go = $("#bgo");
+    try {
+      if (!W.address) { await connect(); refreshWalletLabels(); await loadBals(); return; }
+      let amt; try { amt = parseUnits($("#bamt").value.trim() || "0", 18); } catch { throw new Error("Invalid amount."); }
+      if (amt <= 0n) throw new Error("Enter an amount.");
+      await loadBals();
+      if (bals && bals.b1 < amt) throw new Error(`Not enough ETH on Ethereum Sepolia: you have ${fu(bals.b1, 18, 5)} ETH.`);
+      go.disabled = true;
+      const me = getAddress(W.address), before = bals?.b2 ?? (await pc.getBalance({ address: me }));
+      const data = encodeFunctionData({ abi: portalAbi, functionName: "depositTransaction", args: [me, amt, 100_000n, false, "0x"] });
+      let l1hash;
+      await runSteps(`Bridging ${fu(amt, 18, 6)} ETH to GIWA`, [
+        { label: "Switch wallet to Ethereum Sepolia", run: () => switchTo(L1.hex, { chainId: L1.hex, chainName: L1.name, nativeCurrency: l1Chain.nativeCurrency, rpcUrls: [L1.rpc], blockExplorerUrls: [L1.explorer] }) },
+        { label: `Deposit ${fu(amt, 18, 6)} ETH (Ethereum Sepolia)`, run: async () => {
+          await pc1.call({ account: me, to: L1.portal, data, value: amt });
+          l1hash = await W.provider.request({ method: "eth_sendTransaction", params: [{ from: me, to: L1.portal, data, value: toHex(amt) }] });
+          toast(`Deposit sent · <a href="${L1.explorer}/tx/${l1hash}" target="_blank" rel="noopener">view</a>`);
+          const r = await pc1.waitForTransactionReceipt({ hash: l1hash, pollingInterval: 3000, timeout: 300_000 });
+          if (r.status !== "success") throw new Error("The deposit reverted on Ethereum Sepolia.");
+        } },
+        { label: "Switch wallet back to GIWA Sepolia", run: async () => { try { await ensureChain(); } catch {} } },
+        { label: "Wait for the ETH to arrive on GIWA", run: async () => {
+          for (let i = 0; i < 60; i++) {
+            const now = await pc.getBalance({ address: me }).catch(() => before);
+            if (now > before) return;
+            await sleep(5000);
+          }
+          throw new Error("Not visible on GIWA yet. Deposits can take a few more minutes; your ETH is safe and will arrive.");
+        } },
+      ]);
+      toast(`Bridged! ${fu(amt, 18, 6)} ETH is on GIWA.`, "ok", 8000);
+      $("#bamt").value = ""; sync(); loadBals();
+    } catch (e) { if (!e.shown) toast(esc(errText(e)), "err", 9000); }
+    finally { if ($("#bgo")) $("#bgo").disabled = false; }
+  };
+}
+
 /* ───────────── view: wrap ───────────── */
 async function viewWrap() {
   app.innerHTML = `<div class="form card" style="max-width:520px"><h2>ETH ⇄ WETH</h2>
@@ -1637,6 +1750,7 @@ async function render() {
     if (route === "portfolio") return await viewPortfolio(id, arg);
     if (route === "swap") return await viewSwap(id, arg);
     if (route === "wrap") return await viewWrap();
+    if (route === "bridge") return await viewBridge(id);
     if (route === "setup") return viewSetup();
     return await viewExplore(id);
   } catch (e) { if (id === renderId) app.innerHTML = `<div class="empty">Something went wrong: ${esc(errText(e))}</div>`; }

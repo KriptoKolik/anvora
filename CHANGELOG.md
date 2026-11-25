@@ -15,6 +15,7 @@
 - **Token page on mobile**: the Buy/Sell box now sits right under the token header; compact header and stats; graduated tokens show a single "Graduated" line instead of an empty curve.
 - **Locked liquidity shown**: graduated pool positions are marked 🔒 Locked forever (liquidity can never be pulled, fees stay claimable); empty leftover positions are hidden.
 - **New launch Config #108**: new tokens now graduate at 0.25 WETH (was 0.05), so one buyer can't fill the whole curve at once. Earlier Anvora launches (Config #96) still count as On Anvora.
+- **Bridge tab**: deposit ETH from Ethereum Sepolia to GIWA Sepolia in one click through GIWA's official OP Stack portal (arrives in ~1–3 min). Withdrawals link to the official GIWA bridge (~7 days).
 - **$ANVORA graduated** into a permanent Ammora pool; pool buys and sells verified on-chain.
 
 ## Earlier

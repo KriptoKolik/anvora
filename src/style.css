@@ -345,4 +345,7 @@ a.prow2:hover{text-decoration:none;background:var(--panel2)}
   .t-grad{padding:12px 14px;font-size:12.5px}
 }
 .lockt{font-size:11px;font-weight:700;padding:1px 6px;border-radius:5px;background:var(--panel2);color:var(--mute);white-space:nowrap}
+.bseg{display:flex}.bseg button{flex:1}
+.bnet{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}
+.bnet div{display:grid;gap:2px}.bnet span{font-size:12px}.barrow{font-size:20px;color:var(--fire)}
 [hidden]{display:none!important}
