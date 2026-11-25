@@ -472,6 +472,7 @@ async function viewExplore(id) {
       <div class="stats" id="stats">${[0, 1, 2, 3].map(() => `<div class="stat"><span>&nbsp;</span><b>—</b></div>`).join("")}</div>
       <div style="font-size:13px;color:var(--ironmute)">Every launch starts on an Ammora bonding curve and graduates into a permanent Ammora pool.</div></div>
   </section>
+  <button class="sitestats" id="sitestats" title="Show tokens launched on ${esc(SITE.name)}"><span class="ss-k">On ${esc(SITE.name)}</span><span class="ss-v" id="ssv">…</span></button>
   <div class="toolbar" id="list">
     <div class="seg" id="filter">${[["all", "All"], ["live", "Live"], ["near", "Near graduation"], ["grad", "Graduated"], ["site", `On ${SITE.name}`]]
       .map(([k, n]) => `<button data-k="${k}" class="${ui.filter === k ? "on" : ""}">${n}</button>`).join("")}</div>
@@ -495,6 +496,17 @@ async function viewExplore(id) {
   const vol = list.reduce((s, x) => s + Number(formatUnits(x.quoteReserve ?? 0n, 18)), 0);
   $("#stats").innerHTML = [["Tokens launched", fmt(list.length)], ["Live curves", fmt(live)], ["Graduated", fmt(grad)], ["WETH on curves", fmt(vol)]]
     .map(([k, v]) => `<div class="stat"><span>${k}</span><b>${v}</b></div>`).join("");
+  // Live counter for this site's own Config: launches, distinct creators, graduations, WETH raised.
+  {
+    const mineList = cid === null ? [] : list.filter((x) => x.configId === cid);
+    const creators = new Set(mineList.map((x) => x.creator.toLowerCase())).size;
+    const g = mineList.filter((x) => x.status >= 2).length;
+    const raised = mineList.reduce((a, x) => a + (x.raised || 0), 0);
+    const it = (n, label) => `<span><b>${n}</b> ${label}</span>`;
+    $("#ssv").innerHTML = [it(fmt(mineList.length), mineList.length === 1 ? "token launched" : "tokens launched"), it(fmt(creators), creators === 1 ? "creator" : "creators"),
+      it(fmt(g), "graduated"), it(fmt(raised), "WETH raised")].join(`<i>·</i>`);
+    $("#sitestats").onclick = () => { $('#filter button[data-k="site"]')?.click(); $("#list").scrollIntoView({ behavior: "smooth" }); };
+  }
 
   const draw = () => {
     const q = ui.q.trim().toLowerCase();

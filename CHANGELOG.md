@@ -5,7 +5,8 @@
 - **Cleaner icons**: SVG icons replace emoji arrows (fixes iOS rendering).
 - **Step modal**: the Close button only appears if a step fails.
 - **Pool trades**: after graduation, trades in the Ammora pool show up in Recent trades (tagged *Pool*) and continue the price chart.
-- **Your earnings** (Portfolio): creators and Config owners see the trading fees waiting for them in Ammora's fee vault and the fees earned by their graduated pool positions, and claim both with one click.
+- **Your earnings** (Portfolio): creators and Config owners see the trading fees waiting for them in Ammora's fee vault and the fees earned by their graduated pool positions, and claim them (Claim all for pool positions).
+- **Live Anvora counter** on Explore: tokens launched, creators, graduations and WETH raised on Anvora, read from the chain. Tap it to list Anvora launches.
 - **$ANVORA graduated** into a permanent Ammora pool; pool buys and sells verified on-chain.
 
 ## Earlier
