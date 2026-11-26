@@ -618,27 +618,22 @@ async function load24h(list) {
     if (!m.last || t >= m.last.t) m.last = { t, price };
     map.set(k, m);
   };
-  // Explorer first (one query per event type, any address); if it returns nothing, read the chain directly.
-  const poolTopics = POOL_SWAP_EVENTS.map((e) => toEventSelector(e));
-  let [curveLogs, ...poolLogs] = await Promise.all([
-    explorerLogs({ topic0: SWAP_TOPIC, fromBlock }).catch(() => []),
-    ...poolTopics.map((t) => explorerLogs({ topic0: t, fromBlock }).catch(() => [])),
-  ]);
-  if (!curveLogs.length && !poolLogs.flat().length) {
-    // Fallback: per-address queries (the same proven path as a token's Recent trades) for the tokens most likely
-    // to be active: this site's launches, live tokens and anything launched in the last 14 days, capped.
-    const recent = Date.now() / 1000 - 14 * 86_400;
+  // Curve swaps: one explorer query for the shared Swap event (every launch curve emits it, and nothing else does).
+  // Pool swaps: per pool, because the Ammora pool Swap event is shared with every other Ammora pool on GIWA.
+  const recent = Date.now() / 1000 - 14 * 86_400;
+  let curveLogs = await explorerLogs({ topic0: SWAP_TOPIC, fromBlock }).catch(() => []);
+  const poolLogs = [];
+  const jobs = [];
+  const pools = list.filter((x) => x.pool && x.pool !== zeroAddress).sort((p, q) => (q.time || 0) - (p.time || 0)).slice(0, 40);
+  for (const x of pools) jobs.push(() => explorerLogs({ address: x.pool, fromBlock }).then((r) => poolLogs.push(r)).catch(() => {}));
+  if (!curveLogs.length) {
+    // Fallback: per-curve queries for the tokens most likely to be active.
     const cands = list.filter((x) => isOfficial(x.curve, x.token) || isSiteLaunch(x) || x.status === 1 || (x.time && x.time > recent))
       .sort((p, q) => (q.time || 0) - (p.time || 0)).slice(0, 48);
-    const jobs = [];
-    for (const x of cands) {
-      jobs.push(() => explorerLogs({ address: x.curve, topic0: SWAP_TOPIC, fromBlock }).then((r) => curveLogs.push(...r)).catch(() => {}));
-      if (x.pool && x.pool !== zeroAddress) jobs.push(() => explorerLogs({ address: x.pool, fromBlock }).then((r) => poolLogs.push(r)).catch(() => {}));
-    }
-    // small concurrency so the explorer isn't flooded
-    let k = 0;
-    await Promise.all(Array.from({ length: 6 }, async () => { while (k < jobs.length) await jobs[k++](); }));
+    for (const x of cands) jobs.push(() => explorerLogs({ address: x.curve, topic0: SWAP_TOPIC, fromBlock }).then((r) => curveLogs.push(...r)).catch(() => {}));
   }
+  let k = 0;
+  await Promise.all(Array.from({ length: 6 }, async () => { while (k < jobs.length) await jobs[k++](); }));
   for (const l of curveLogs) {
     const x = byCurve.get(String(l.address).toLowerCase()); if (!x) continue;
     const ev = decodeSwapLog(l, x, false); if (ev) events.push(ev);
