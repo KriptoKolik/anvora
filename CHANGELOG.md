@@ -24,7 +24,7 @@
 - **Creator links**: tap a creator's address to see their launches and holdings.
 - **24h stats on cards**: volume, trade count and price change, plus a new **Trending** sort.
 - **Leaderboard**: top traders (all-time WETH volume) and top creators (graduations, WETH raised) on Anvora tokens.
-- **Live strip** on Explore: the latest trades and launches scroll by in real time.
+- **New home card**: Anvora's own numbers (tokens, creators, graduated, WETH raised) up front, a live strip of the latest trades and launches inside it, and all-of-GIWA stats as a small line underneath.
 - **Link preview**: sharing anvora.vercel.app on X now shows a proper card with the Anvora image.
 
 ## Earlier
