@@ -413,4 +413,7 @@ h2 .vtag{font-size:13px;vertical-align:6px}
 .lbtable tr:last-child td{border-bottom:0}
 .lbtable td:first-child{width:36px;font-size:16px}
 @media (max-width:600px){.lbtable table{font-size:13px}.lbtable th:nth-child(5),.lbtable td:nth-child(5){display:none}}
+.nav a{flex-shrink:0}
+.nl-short{display:none}
+@media (max-width:600px){.nl-long{display:none}.nl-short{display:inline}.nav{gap:0}.nav a{padding-left:8px;padding-right:8px}}
 [hidden]{display:none!important}
