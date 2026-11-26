@@ -416,4 +416,15 @@ h2 .vtag{font-size:13px;vertical-align:6px}
 .nav a{flex-shrink:0}
 .nl-short{display:none}
 @media (max-width:600px){.nl-long{display:none}.nl-short{display:inline}.nav{gap:0}.nav a{padding-left:8px;padding-right:8px}}
+/* hero card: site numbers, live strip, GIWA-wide line */
+.plate .ph{display:flex;align-items:center;gap:8px}
+.ph-link{margin-left:auto;border:0;background:none;color:var(--fire);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;padding:0}
+.ph-link:hover{text-decoration:underline}
+.plate .ticker{margin:0;background:rgba(255,255,255,.03);height:38px;border-color:var(--ironline)}
+.plate .tk-live{border-right-color:var(--ironline);color:var(--ironink)}
+.plate .tk-i a,.plate .tk-i{color:var(--ironink)}
+.plate .tk-i .muted{color:var(--ironmute)}
+.gline{font-size:12.5px;color:var(--ironmute)}
+.gline b{color:var(--ironink);font-weight:700}
+@media (max-width:600px){.plate .stats .stat{padding:10px 12px}.plate .stats .stat b{font-size:22px}}
 [hidden]{display:none!important}

@@ -497,12 +497,11 @@ async function viewExplore(id) {
       <p>${esc(SITE.tagline)}</p>
       <div class="row"><a class="btn pri" href="#/create">Launch a token</a><button class="btn" id="browse">Browse launches</button><button class="btn icon" id="shareSite" aria-label="Share ${esc(SITE.name)}" title="Share ${esc(SITE.name)}">${ICON_SHARE}</button></div>
     </div>
-    <div class="plate"><div class="ph"><i></i>Live on GIWA Sepolia</div>
+    <div class="plate"><div class="ph"><i></i>Live on ${esc(SITE.name)}<button class="ph-link" id="sitestats" title="Show tokens launched on ${esc(SITE.name)}">See them →</button></div>
       <div class="stats" id="stats">${[0, 1, 2, 3].map(() => `<div class="stat"><span>&nbsp;</span><b>—</b></div>`).join("")}</div>
-      <div style="font-size:13px;color:var(--ironmute)">Every launch starts on an Ammora bonding curve and graduates into a permanent Ammora pool.</div></div>
+      <div class="ticker" id="ticker"><span class="tk-live"><i></i>Live</span><div class="tk-view"><div class="tk-track" id="tktrack"><span class="tk-i muted">Loading the latest trades…</span></div></div></div>
+      <div class="gline" id="gline">&nbsp;</div></div>
   </section>
-  <button class="sitestats" id="sitestats" title="Show tokens launched on ${esc(SITE.name)}"><span class="ss-k">On ${esc(SITE.name)}</span><span class="ss-v" id="ssv">…</span></button>
-  <div class="ticker" id="ticker" hidden><span class="tk-live"><i></i>Live</span><div class="tk-view"><div class="tk-track" id="tktrack"></div></div></div>
   <div class="toolbar" id="list">
     <div class="seg" id="filter">${[["all", "All"], ["live", "Live"], ["near", "Near graduation"], ["grad", "Graduated"], ["site", `On ${SITE.name}`]]
       .map(([k, n]) => `<button data-k="${k}" class="${ui.filter === k ? "on" : ""}">${n}</button>`).join("")}</div>
@@ -522,19 +521,16 @@ async function viewExplore(id) {
   catch (e) { if (id === renderId) $("#cards").outerHTML = `<div class="empty">Could not load launches: ${esc(errText(e))}<br><button class="btn" style="margin-top:12px" onclick="location.reload()">Retry</button></div>`; return; }
   if (id !== renderId) return;
 
-  const live = list.filter((x) => x.status === 1).length, grad = list.filter((x) => x.status === 3).length;
-  const vol = list.reduce((s, x) => s + Number(formatUnits(x.quoteReserve ?? 0n, 18)), 0);
-  $("#stats").innerHTML = [["Tokens launched", fmt(list.length)], ["Live curves", fmt(live)], ["Graduated", fmt(grad)], ["WETH on curves", fmt(vol)]]
-    .map(([k, v]) => `<div class="stat"><span>${k}</span><b>${v}</b></div>`).join("");
-  // Live counter for this site's own Config: launches, distinct creators, graduations, WETH raised.
+  // Big numbers are this site's own launches; the whole of Ammora on GIWA is a supporting line underneath.
   {
     const mineList = list.filter(isSiteLaunch);
     const creators = new Set(mineList.map((x) => x.creator.toLowerCase())).size;
     const g = mineList.filter((x) => x.status >= 2).length;
     const raised = mineList.reduce((a, x) => a + (x.raised || 0), 0);
-    const it = (n, label) => `<span><b>${n}</b> ${label}</span>`;
-    $("#ssv").innerHTML = [it(fmt(mineList.length), mineList.length === 1 ? "token launched" : "tokens launched"), it(fmt(creators), creators === 1 ? "creator" : "creators"),
-      it(fmt(g), "graduated"), it(fmt(raised), "WETH raised")].join(`<i>·</i>`);
+    $("#stats").innerHTML = [["Tokens launched", fmt(mineList.length)], ["Creators", fmt(creators)], ["Graduated", fmt(g)], ["WETH raised", fmt(raised)]]
+      .map(([k, v]) => `<div class="stat"><span>${k}</span><b>${v}</b></div>`).join("");
+    const gradAll = list.filter((x) => x.status === 3).length, liveAll = list.filter((x) => x.status === 1).length;
+    $("#gline").innerHTML = `Across all of Ammora on GIWA: <b>${fmt(list.length)}</b> launches · <b>${fmt(liveAll)}</b> live · <b>${fmt(gradAll)}</b> graduated`;
     $("#sitestats").onclick = () => { $('#filter button[data-k="site"]')?.click(); $("#list").scrollIntoView({ behavior: "smooth" }); };
   }
 
@@ -684,7 +680,7 @@ function drawTicker(list) {
     ...(act24.events || []).slice(0, 24).map((e) => ({ t: e.time, html: `<a href="#/token/${e.x.curve}"><span class="mono muted">${short(e.trader)}</span> <b class="${e.sell ? "bad" : "good"}">${e.sell ? "sold" : "bought"}</b> <b>$${esc(e.x.symbol || "?")}</b> <span class="muted">for ${fu(e.weth, 18, 4)} WETH · ${ago(e.time)}</span></a>` })),
     ...list.filter((x) => x.time && x.time > dayAgo).slice(0, 10).map((x) => ({ t: x.time, html: `<a href="#/token/${x.curve}">🚀 <b>$${esc(x.symbol || "?")}</b> <span class="muted">launched · ${ago(x.time)}</span></a>` })),
   ].sort((a, b) => b.t - a.t).slice(0, 24);
-  if (items.length < 2) { el.hidden = true; return; }
+  if (!items.length) { track.innerHTML = `<span class="tk-i muted">No trades in the last 24 hours yet. Be the first!</span>`; track.style.animation = "none"; return; }
   const row = items.map((i) => `<span class="tk-i">${i.html}</span>`).join("");
   track.innerHTML = row + row; // doubled for a seamless loop
   track.style.setProperty("--tk-dur", `${Math.max(30, items.length * 5)}s`);
