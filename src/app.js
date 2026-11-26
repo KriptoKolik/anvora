@@ -283,7 +283,8 @@ function renderHeader() {
 const ICON_SHARE = `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>`;
 const ICON_OUT = `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>`;
 const SITE_X = (SITE.links?.x || "").match(/x\.com\/([A-Za-z0-9_]+)/)?.[1] || "";
-const pageUrl = (hash) => `${location.origin}${location.pathname}${hash}`;
+// The home page is shared as the bare address (no "#/"); other pages need their #/route to open the right view.
+const pageUrl = (hash) => `${location.origin}${location.pathname}${hash && hash !== "#/" && hash !== "#" ? hash : ""}`;
 // A small sheet: Share on X (prefilled post), the device's own share menu where it exists, Copy link.
 function shareSheet({ title, text, url }) {
   const x = new URL("https://x.com/intent/post");
