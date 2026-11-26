@@ -23,6 +23,8 @@
 - **Top holders** on every token page: share of supply, with the bonding curve, Ammora pool, creator and you labelled.
 - **Creator links**: tap a creator's address to see their launches and holdings.
 - **24h stats on cards**: volume, trade count and price change, plus a new **Trending** sort.
+- **Leaderboard**: top traders (all-time WETH volume) and top creators (graduations, WETH raised) on Anvora tokens.
+- **Live strip** on Explore: the latest trades and launches scroll by in real time.
 - **Link preview**: sharing anvora.vercel.app on X now shows a proper card with the Anvora image.
 
 ## Earlier

@@ -502,6 +502,7 @@ async function viewExplore(id) {
       <div style="font-size:13px;color:var(--ironmute)">Every launch starts on an Ammora bonding curve and graduates into a permanent Ammora pool.</div></div>
   </section>
   <button class="sitestats" id="sitestats" title="Show tokens launched on ${esc(SITE.name)}"><span class="ss-k">On ${esc(SITE.name)}</span><span class="ss-v" id="ssv">…</span></button>
+  <div class="ticker" id="ticker" hidden><span class="tk-live"><i></i>Live</span><div class="tk-view"><div class="tk-track" id="tktrack"></div></div></div>
   <div class="toolbar" id="list">
     <div class="seg" id="filter">${[["all", "All"], ["live", "Live"], ["near", "Near graduation"], ["grad", "Graduated"], ["site", `On ${SITE.name}`]]
       .map(([k, n]) => `<button data-k="${k}" class="${ui.filter === k ? "on" : ""}">${n}</button>`).join("")}</div>
@@ -563,8 +564,37 @@ async function viewExplore(id) {
   $("#hide").onchange = (e) => { ui.hideTest = e.target.checked; reset(); };
   draw();
   // 24h volume/change arrive a moment later; redraw the cards when they do.
-  load24h(list).then((m) => { if (id !== renderId) return; list.forEach((x) => (x.d24 = m.get(x.curve.toLowerCase()) || null)); draw(); }).catch(() => {});
+  load24h(list).then((m) => { if (id !== renderId) return; list.forEach((x) => (x.d24 = m.get(x.curve.toLowerCase()) || null)); draw(); drawTicker(list); }).catch(() => {});
 }
+// One normalized trade from a curve or pool Swap log: who, which token, buy/sell, WETH and token amounts, when.
+function decodeSwapLog(l, x, fromPool) {
+  try {
+    if (!fromPool) {
+      const a = decodeEventLog({ abi: A.ammoraLaunchPoolV4Abi, data: l.data, topics: l.topics.filter(Boolean) }).args;
+      const weth = a.baseForQuote ? a.amountOut : a.amountIn, tokens = a.baseForQuote ? a.amountIn : a.amountOut;
+      if (!tokens) return null;
+      return { x, sell: a.baseForQuote, weth, tokens, trader: a.recipient && a.recipient !== zeroAddress ? a.recipient : a.trader, time: Number(l.timeStamp), tx: l.transactionHash, pool: false };
+    }
+    const a = decodeEventLog({ abi: POOL_SWAP_EVENTS, data: l.data, topics: l.topics.filter(Boolean) }).args;
+    if (!a.tokenIn) return null;
+    const sell = a.tokenIn.toLowerCase() === x.token.toLowerCase();
+    const weth = sell ? a.amountOut : a.amountIn, tokens = sell ? a.amountIn : a.amountOut;
+    if (!tokens) return null;
+    return { x, sell, weth, tokens, trader: a.recipient && a.recipient !== zeroAddress ? a.recipient : a.sender, time: Number(l.timeStamp), tx: l.transactionHash, pool: true };
+  } catch { return null; }
+}
+// Every trade on the given launches since fromBlock: per-address explorer queries (curve + pool), small concurrency.
+async function swapsFor(launches, fromBlock = FACTORY_START) {
+  const out = [], jobs = [];
+  for (const x of launches) {
+    jobs.push(() => explorerLogs({ address: x.curve, topic0: SWAP_TOPIC, fromBlock }).then((r) => r.forEach((l) => { const t = decodeSwapLog(l, x, false); if (t) out.push(t); })).catch(() => {}));
+    if (x.pool && x.pool !== zeroAddress) jobs.push(() => explorerLogs({ address: x.pool, fromBlock }).then((r) => r.forEach((l) => { const t = decodeSwapLog(l, x, true); if (t) out.push(t); })).catch(() => {}));
+  }
+  let k = 0;
+  await Promise.all(Array.from({ length: 6 }, async () => { while (k < jobs.length) await jobs[k++](); }));
+  return out.sort((a, b) => b.time - a.time);
+}
+
 // 24h activity across all launches: one explorer query per Swap event type, grouped by curve/pool.
 let act24 = { at: 0, map: new Map() };
 async function load24h(list) {
@@ -578,7 +608,7 @@ async function load24h(list) {
   if (!fromBlock) fromBlock = Math.max(FACTORY_START, Number(await pc.getBlockNumber()) - 86_400);
   const byCurve = new Map(list.map((x) => [x.curve.toLowerCase(), x]));
   const byPool = new Map(list.filter((x) => x.pool && x.pool !== zeroAddress).map((x) => [x.pool.toLowerCase(), x]));
-  const map = new Map();
+  const map = new Map(), events = [];
   const add = (x, weth, price, t) => {
     if (!x) return;
     const k = x.curve.toLowerCase();
@@ -611,6 +641,7 @@ async function load24h(list) {
   }
   for (const l of curveLogs) {
     const x = byCurve.get(String(l.address).toLowerCase()); if (!x) continue;
+    const ev = decodeSwapLog(l, x, false); if (ev) events.push(ev);
     try {
       const a = decodeEventLog({ abi: A.ammoraLaunchPoolV4Abi, data: l.data, topics: l.topics.filter(Boolean) }).args;
       const weth = a.baseForQuote ? a.amountOut : a.amountIn, tokens = a.baseForQuote ? a.amountIn : a.amountOut;
@@ -620,6 +651,7 @@ async function load24h(list) {
   }
   for (const l of poolLogs.flat()) {
     const x = byPool.get(String(l.address).toLowerCase()); if (!x) continue;
+    const ev = decodeSwapLog(l, x, true); if (ev) events.push(ev);
     try {
       const a = decodeEventLog({ abi: POOL_SWAP_EVENTS, data: l.data, topics: l.topics.filter(Boolean) }).args;
       const sell = a.tokenIn.toLowerCase() === x.token.toLowerCase();
@@ -634,7 +666,8 @@ async function load24h(list) {
     const now = x.status === 1 && x.price ? x.price : m.last.price;
     m.change = m.first.price > 0 ? now / m.first.price - 1 : 0;
   }
-  act24 = { at: Date.now(), map };
+  events.sort((a, b) => b.time - a.time);
+  act24 = { at: Date.now(), map, events };
   return map;
 }
 const pctTxt = (c) => `${c >= 0 ? "+" : ""}${Math.abs(c) >= 10 ? fmt(c * 100) : (c * 100).toFixed(1)}%`;
@@ -647,6 +680,68 @@ const card = (x) => `
     <div class="tprog"><div class="bar"><i style="width:${(x.progress * 100).toFixed(1)}%"></i></div><b>${(x.progress * 100).toFixed(x.progress >= 1 ? 0 : 1)}%</b></div>
     <div class="kv tfoot"><span>Creator <span class="clink" data-href="#/portfolio/${x.creator}" title="See this creator's launches and holdings">${short(x.creator)}</span></span><span>${x.time ? ago(x.time) : `block ${x.block}`}</span></div>
   </a>`;
+
+// Live strip on Explore: the latest trades and launches across the site, scrolling.
+function drawTicker(list) {
+  const el = $("#ticker"), track = $("#tktrack"); if (!el || !track) return;
+  const dayAgo = Date.now() / 1000 - 86_400;
+  const items = [
+    ...(act24.events || []).slice(0, 24).map((e) => ({ t: e.time, html: `<a href="#/token/${e.x.curve}"><span class="mono muted">${short(e.trader)}</span> <b class="${e.sell ? "bad" : "good"}">${e.sell ? "sold" : "bought"}</b> <b>$${esc(e.x.symbol || "?")}</b> <span class="muted">for ${fu(e.weth, 18, 4)} WETH · ${ago(e.time)}</span></a>` })),
+    ...list.filter((x) => x.time && x.time > dayAgo).slice(0, 10).map((x) => ({ t: x.time, html: `<a href="#/token/${x.curve}">🚀 <b>$${esc(x.symbol || "?")}</b> <span class="muted">launched · ${ago(x.time)}</span></a>` })),
+  ].sort((a, b) => b.t - a.t).slice(0, 24);
+  if (items.length < 2) { el.hidden = true; return; }
+  const row = items.map((i) => `<span class="tk-i">${i.html}</span>`).join("");
+  track.innerHTML = row + row; // doubled for a seamless loop
+  track.style.setProperty("--tk-dur", `${Math.max(30, items.length * 5)}s`);
+  el.hidden = false;
+}
+
+/* ───────────── view: leaderboard ───────────── */
+// Rankings for tokens launched on Anvora, read from the chain: top traders by WETH volume and top creators.
+let lbCache = { at: 0, trades: [] };
+let lbTab = "traders";
+async function viewLeaderboard(id) {
+  app.innerHTML = `<div class="lbwrap">
+    <div><h1 style="font-size:40px">Leaderboard</h1><p class="muted" style="margin:10px 0 0">The most active wallets on tokens launched on ${esc(SITE.name)}, straight from the chain.</p></div>
+    <div class="seg bseg" id="lbtabs"><button data-t="traders" class="${lbTab === "traders" ? "on" : ""}">Top traders</button><button data-t="creators" class="${lbTab === "creators" ? "on" : ""}">Top creators</button></div>
+    <div id="lbbody"><div class="skel" style="height:220px"></div></div></div>`;
+  let list = [];
+  try { list = (await loadLaunches()).filter(isSiteLaunch); } catch (e) { $("#lbbody").innerHTML = `<div class="muted">${esc(errText(e))}</div>`; return; }
+  if (id !== renderId) return;
+  const me = W.address ? W.address.toLowerCase() : "";
+  const you = (a) => (me && a.toLowerCase() === me ? ` <span class="htag hy">You</span>` : "");
+  const medal = (i) => (i < 3 ? ["🥇", "🥈", "🥉"][i] : `<span class="muted">${i + 1}</span>`);
+  const drawCreators = () => {
+    const by = new Map();
+    for (const x of list) {
+      const k = x.creator.toLowerCase(); const c = by.get(k) || { addr: x.creator, launches: 0, grads: 0, raised: 0 };
+      c.launches++; if (x.status >= 2) c.grads++; c.raised += x.raised || 0; by.set(k, c);
+    }
+    const rows = [...by.values()].sort((a, b) => b.grads - a.grads || b.raised - a.raised || b.launches - a.launches).slice(0, 50);
+    $("#lbbody").innerHTML = rows.length ? `<div class="card lbtable"><table><thead><tr><th>#</th><th>Creator</th><th>Launches</th><th>Graduated</th><th>Raised</th></tr></thead><tbody>
+      ${rows.map((r, i) => `<tr><td>${medal(i)}</td><td><a class="mono" href="#/portfolio/${r.addr}">${short(r.addr)}</a>${you(r.addr)}</td><td>${r.launches}</td><td>${r.grads}</td><td><b>${fmt(r.raised)}</b> WETH</td></tr>`).join("")}
+      </tbody></table></div><div class="help" style="margin-top:8px">Ranked by tokens graduated, then WETH raised.</div>` : `<div class="pempty">No launches yet.</div>`;
+  };
+  const drawTraders = async () => {
+    if (Date.now() - lbCache.at > 120_000) {
+      $("#lbbody").innerHTML = `<div class="skel" style="height:220px"></div>`;
+      lbCache = { at: Date.now(), trades: await swapsFor(list) };
+      if (id !== renderId || lbTab !== "traders") return;
+    }
+    const by = new Map();
+    for (const t of lbCache.trades) {
+      const k = String(t.trader).toLowerCase(); const r = by.get(k) || { addr: t.trader, vol: 0n, trades: 0, buys: 0, sells: 0, tokens: new Set() };
+      r.vol += t.weth; r.trades++; t.sell ? r.sells++ : r.buys++; r.tokens.add(t.x.curve); by.set(k, r);
+    }
+    const rows = [...by.values()].sort((a, b) => (b.vol > a.vol ? 1 : b.vol < a.vol ? -1 : b.trades - a.trades)).slice(0, 50);
+    $("#lbbody").innerHTML = rows.length ? `<div class="card lbtable"><table><thead><tr><th>#</th><th>Trader</th><th>Volume</th><th>Trades</th><th>Tokens</th></tr></thead><tbody>
+      ${rows.map((r, i) => `<tr><td>${medal(i)}</td><td><a class="mono" href="${addrUrl(r.addr)}" target="_blank" rel="noopener">${short(r.addr)}</a>${you(r.addr)}</td><td><b>${fu(r.vol, 18, 4)}</b> WETH</td><td>${r.trades} <span class="muted">(${r.buys}B/${r.sells}S)</span></td><td>${r.tokens.size}</td></tr>`).join("")}
+      </tbody></table></div><div class="help" style="margin-top:8px">All-time WETH volume on ${esc(SITE.name)} tokens, bonding curve and Ammora pool trades included.</div>` : `<div class="pempty">No trades yet.</div>`;
+  };
+  const draw = () => (lbTab === "traders" ? drawTraders() : drawCreators());
+  $("#lbtabs").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; lbTab = b.dataset.t; $("#lbtabs").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); draw(); };
+  draw();
+}
 
 /* ───────────── view: token ───────────── */
 let swapClientP = null;
@@ -1885,6 +1980,7 @@ async function render() {
     if (route === "swap") return await viewSwap(id, arg);
     if (route === "wrap") return await viewWrap();
     if (route === "bridge") return await viewBridge(id);
+    if (route === "leaderboard") return await viewLeaderboard(id);
     if (route === "setup") return viewSetup();
     return await viewExplore(id);
   } catch (e) { if (id === renderId) app.innerHTML = `<div class="empty">Something went wrong: ${esc(errText(e))}</div>`; }
