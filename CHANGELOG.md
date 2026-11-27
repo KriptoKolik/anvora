@@ -28,5 +28,8 @@
 - **Anvora badge** on tokens launched on Anvora, so they stand out in the full Ammora list.
 - **Link preview**: sharing anvora.vercel.app on X now shows a proper card with the Anvora image.
 
+## 2026-11-27
+- **Phone layout, app-style**: a bottom tab bar (Explore · Swap · Launch · Portfolio · More), compact token rows that fit 5–6 tokens on one screen, a shorter hero and one-row swipeable filters. Desktop is unchanged.
+
 ## Earlier
 - Swap page, Official badge, hidden test tokens, $ANVORA X link fix, launch wording, mobile menu, trades show the real trader.
