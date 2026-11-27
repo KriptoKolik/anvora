@@ -30,6 +30,8 @@
 
 ## 2026-11-27
 - **Phone layout, app-style**: a bottom tab bar (Explore · Swap · Launch · Portfolio · More), compact token rows that fit 5–6 tokens on one screen, a shorter hero and one-row swipeable filters. Desktop is unchanged.
+- **Tidier desktop**: filters, search, a live token count and a sort menu now sit on one line, and a Launch button sits next to the wallet in the header.
+- **한국어 지원 (Korean)**: switch between English and Korean from the header; Korean browsers open in Korean automatically. Token names and descriptions stay as their creators wrote them.
 
 ## Earlier
 - Swap page, Official badge, hidden test tokens, $ANVORA X link fix, launch wording, mobile menu, trades show the real trader.
