@@ -165,6 +165,9 @@ const OFFICIAL = new Set((SITE.officialTokens || []).map((x) => String(x).toLowe
 const isOfficial = (...addrs) => addrs.some((a) => a && OFFICIAL.has(String(a).toLowerCase()));
 const LABELS = new Map(Object.entries(SITE.tokenLabels || {}).map(([k, v]) => [k.toLowerCase(), v]));
 const verTag = (...addrs) => { const a = addrs.find((x) => x && LABELS.has(String(x).toLowerCase())); return a ? ` <span class="vtag">${esc(LABELS.get(String(a).toLowerCase()))}</span>` : ""; };
+// "Anvora" badge: launched through one of this site's Configs (the official token already says so).
+const siteBadge = `<span class="badge b-site" title="Launched on ${esc(SITE.name)}">${esc(SITE.name)}</span>`;
+const siteBadgeFor = (x, official) => (!official && isSiteLaunch(x) ? siteBadge : "");
 const officialBadge = `<span class="badge b-official" title="The official ${esc(SITE.name)} token">✓ Official</span>`;
 // "New" for launches from the last 24 hours (only when the launch time is known).
 const isNew = (x) => !!x.time && Date.now() / 1000 - x.time < 86_400;
@@ -664,7 +667,7 @@ async function load24h(list) {
 const pctTxt = (c) => `${c >= 0 ? "+" : ""}${Math.abs(c) >= 10 ? fmt(c * 100) : (c * 100).toFixed(1)}%`;
 const card = (x) => `
   <a class="card tcard" href="#/token/${x.curve}">
-    <div class="thead">${avatar(x)}<div style="flex:1;min-width:0"><b>${esc(x.name || x.meta?.name || "Unnamed")}${verTag(x.curve, x.token)}</b><span class="muted mono">$${esc(x.symbol || "?")}</span></div><div class="tbadges">${isNew(x) ? newBadge : ""}${statusBadge(x.status)}${isOfficial(x.curve, x.token) ? officialBadge : ""}</div></div>
+    <div class="thead">${avatar(x)}<div style="flex:1;min-width:0"><b>${esc(x.name || x.meta?.name || "Unnamed")}${verTag(x.curve, x.token)}</b><span class="muted mono">$${esc(x.symbol || "?")}</span></div><div class="tbadges">${isNew(x) ? newBadge : ""}${statusBadge(x.status)}${isOfficial(x.curve, x.token) ? officialBadge : ""}${siteBadgeFor(x, isOfficial(x.curve, x.token))}</div></div>
     ${x.meta?.description ? `<div class="muted tdesc">${esc(x.meta.description)}</div>` : ""}
     <div class="tnums"><div><span>Market cap</span><b>${x.junk ? "—" : `${fmt(x.mcap)} ETH`}</b></div><div><span>Raised</span><b>${fmt(x.raised)} WETH</b></div></div>
     ${x.d24 && x.d24.vol > 0 ? `<div class="t24"><span>24h</span><b>${fmt(x.d24.vol)} WETH vol</b><span class="muted">· ${x.d24.trades} trade${x.d24.trades === 1 ? "" : "s"}</span><em class="${x.d24.change >= 0 ? "up" : "down"}">${pctTxt(x.d24.change)}</em></div>` : ""}
@@ -779,7 +782,7 @@ async function viewToken(id, arg) {
       <div class="card t-head">
         <div class="thero">${avatar({ meta, symbol: tok.symbol }, "lg")}
           <div style="flex:1;min-width:0"><h2>${esc(tok.name)}${verTag(curve, tok.address)} <span class="muted mono" style="font-size:16px">$${esc(tok.symbol)}</span></h2>
-            <div style="margin-top:6px">${statusBadge(st.status)} ${isOfficial(curve, tok.address) ? officialBadge : ""} <span class="muted" style="font-size:13px">Config #${st.configId} · fee ${feePct}%</span></div>
+            <div style="margin-top:6px">${statusBadge(st.status)} ${isOfficial(curve, tok.address) ? officialBadge : ""}${siteBadgeFor({ configId: st.configId }, isOfficial(curve, tok.address))} <span class="muted" style="font-size:13px">Config #${st.configId} · fee ${feePct}%</span></div>
             <div class="links">${links.map(([n, u]) => `<a href="${esc(safeUrl(u))}" target="_blank" rel="noopener nofollow">${n} ${ICON_OUT}</a>`).join("")}<button class="lbtn" id="shareTok">${ICON_SHARE} Share</button></div></div></div>
         ${meta.description ? `<p class="muted tdesc2">${esc(meta.description)}</p>` : ""}
       </div>
