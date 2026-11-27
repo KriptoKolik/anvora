@@ -32,6 +32,7 @@
 - **Phone layout, app-style**: a bottom tab bar (Explore · Swap · Launch · Portfolio · More), compact token rows that fit 5–6 tokens on one screen, a shorter hero and one-row swipeable filters. Desktop is unchanged.
 - **Tidier desktop**: filters, search, a live token count and a sort menu now sit on one line, and a Launch button sits next to the wallet in the header.
 - **Wider on big screens**: 4 token cards per row and less empty space on wide laptops and monitors; the header lines up with the page content.
+- **🔥 Closest to graduation**: the home page now spotlights the live token nearest to graduating, with how much WETH is left, so anyone can make the buy that graduates it.
 - **한국어 지원 (Korean)**: switch between English and Korean from the header; Korean browsers open in Korean automatically. Token names and descriptions stay as their creators wrote them.
 
 ## Earlier
