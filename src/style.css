@@ -524,4 +524,9 @@ h2 .vtag{font-size:13px;vertical-align:6px}
   .sortsel select{flex:1}
   .tb1 .chk{order:2}
 }
+/* language switch */
+.langbtn{height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.langbtn:hover{background:var(--panel2)}
+html[lang=ko] body{word-break:keep-all}
+@media (max-width:600px){.langbtn{height:36px;padding:0 9px;font-size:12px}.top .right{gap:6px}}
 [hidden]{display:none!important}

@@ -7,6 +7,7 @@ import {
   erc20Abi, getAddress, isAddress, decodeEventLog, toEventSelector, encodeFunctionData, zeroAddress, toHex,
 } from "viem";
 import { SITE } from "./config.js";
+import { initI18n } from "./i18n.js";
 
 /* ───────────── deployment (SDK's reviewed GIWA Sepolia catalog) ───────────── */
 const D = A.giwaSepoliaAutoRouteDeployment;
@@ -268,6 +269,7 @@ async function silentReconnect() {
   }
 }
 setTimeout(silentReconnect, 150);
+initI18n();
 
 function renderHeader() {
   const w = $("#wallet");
@@ -505,7 +507,7 @@ async function viewExplore(id) {
     </div>
     <div class="plate"><div class="ph"><i></i>Live on ${esc(SITE.name)}<button class="ph-link" id="sitestats" title="Show tokens launched on ${esc(SITE.name)}">See them →</button></div>
       <div class="stats" id="stats">${[0, 1, 2, 3].map(() => `<div class="stat"><span>&nbsp;</span><b>—</b></div>`).join("")}</div>
-      <div class="ticker" id="ticker"><span class="tk-live"><i></i>Live</span><div class="tk-view"><div class="tk-track" id="tktrack"><span class="tk-i muted">Loading the latest trades…</span></div></div></div>
+      <div class="ticker" id="ticker"><span class="tk-live"><i></i><span data-ko="실시간">Live</span></span><div class="tk-view"><div class="tk-track" id="tktrack"><span class="tk-i muted">Loading the latest trades…</span></div></div></div>
       <div class="gline" id="gline">&nbsp;</div></div>
   </section>
   <div class="toolbar tb1" id="list">
