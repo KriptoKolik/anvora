@@ -416,7 +416,7 @@ h2 .vtag{font-size:13px;vertical-align:6px}
 @media (max-width:600px){.lbtable table{font-size:13px}.lbtable th:nth-child(5),.lbtable td:nth-child(5){display:none}}
 .nav a{flex-shrink:0}
 .nl-short{display:none}
-@media (max-width:600px){.nl-long{display:none}.nl-short{display:inline;font-size:17px;line-height:1}.nav{gap:0}.nav a{padding-left:8px;padding-right:8px}}
+@media (max-width:600px){.nl-long{display:none}.nl-short{display:inline;font-size:17px;line-height:1}.nav{gap:0}.nav a{padding-left:6px;padding-right:6px}}
 /* hero card: site numbers, live strip, GIWA-wide line */
 .plate .ph{display:flex;align-items:center;gap:8px}
 .ph-link{margin-left:auto;border:0;background:none;color:var(--fire);font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;padding:0}
