@@ -428,4 +428,68 @@ h2 .vtag{font-size:13px;vertical-align:6px}
 .gline{font-size:12.5px;color:var(--ironmute)}
 .gline b{color:var(--ironink);font-weight:700}
 @media (max-width:600px){.plate .stats .stat{padding:10px 12px}.plate .stats .stat b{font-size:22px}}
+/* ───── phone layout: bottom tab bar, compact token rows, short hero ───── */
+.tabbar,.tbsheet{display:none}
+@media (max-width:600px){
+  /* 1. bottom tab bar */
+  .top .nav{display:none}
+  body{padding-bottom:calc(66px + env(safe-area-inset-bottom))}
+  .tabbar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:60;
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom));background:color-mix(in srgb,var(--bg) 92%,transparent);
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--line)}
+  .tabbar a,.tabbar button{display:grid;justify-items:center;gap:3px;padding:4px 0;border:0;background:none;color:var(--mute);
+    font:inherit;font-size:10.5px;font-weight:700;text-decoration:none;cursor:pointer}
+  .tabbar svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  .tabbar circle{fill:currentColor;stroke:none}
+  .tabbar .on{color:var(--ink)}
+  .tabbar .on svg{stroke:var(--fire)}
+  .tabbar .on circle{fill:var(--fire)}
+  .tabbar .tb-main svg{width:34px;height:34px;padding:7px;margin-top:-4px;border-radius:12px;background:var(--fire);stroke:var(--on-fire);stroke-width:2.6}
+  .tabbar .tb-main.on svg{stroke:var(--on-fire)}
+  .tbsheet{display:block;position:fixed;inset:0;z-index:59;background:rgba(0,0,0,.35)}
+  .tbsheet[hidden]{display:none!important}
+  .tbs-panel{position:absolute;left:10px;right:10px;bottom:calc(74px + env(safe-area-inset-bottom));display:grid;gap:2px;padding:8px;
+    border-radius:16px;background:var(--panel);border:1px solid var(--line);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .tbs-panel a{display:grid;gap:2px;padding:12px 14px;border-radius:10px;color:var(--ink);text-decoration:none}
+  .tbs-panel a:active,.tbs-panel a:hover{background:var(--panel2)}
+  .tbs-panel span{font-size:12.5px;color:var(--mute)}
+  #toasts{bottom:calc(76px + env(safe-area-inset-bottom))}
+  .foot{padding-bottom:12px}
+
+  /* 2. token cards become compact rows */
+  #cards.grid{grid-template-columns:1fr;gap:8px}
+  .tcard{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"head num" "head chg" "prog prog";
+    column-gap:10px;row-gap:4px;padding:10px 12px;border-radius:14px}
+  .tcard .thead{grid-area:head;gap:10px;min-width:0}
+  .tcard .thead .avatar{width:40px;height:40px;border-radius:10px}
+  .tcard .thead b{font-size:15px}
+  .tcard .thead .mono{font-size:12px}
+  .tcard .tbadges{max-width:none;flex-wrap:nowrap;gap:3px}
+  .tcard .tbadges .badge{font-size:9.5px;padding:1px 5px}
+  .tcard .tbadges .b-site{display:none}
+  .tcard .tdesc,.tcard .tfoot{display:none}
+  .tcard .tnums{grid-area:num;display:block;text-align:right}
+  .tcard .tnums>div:nth-child(2){display:none}
+  .tcard .tnums span{display:none}
+  .tcard .tnums b{font-size:14px}
+  .tcard .t24{grid-area:chg;justify-content:flex-end;font-size:12px}
+  .tcard .t24>:not(em){display:none}
+  .tcard .t24 em{margin-left:0}
+  .tcard .tprog{grid-area:prog;gap:8px}
+  .tcard .tprog .bar{height:3px}
+  .tcard .tprog b{font-size:11px;min-width:34px;color:var(--mute);font-weight:600}
+
+  /* 3. short hero */
+  .hero{gap:14px;margin-bottom:18px}
+  .hero h1{font-size:34px;line-height:1.05}
+  .hero p,#browse,#shareSite{display:none}
+  .hero .row{margin-top:14px}
+  .hero .row .btn.pri{flex:1;justify-content:center}
+  .plate{padding:14px;gap:10px;border-radius:16px}
+  .plate .stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .plate .stats .stat{padding:8px 8px}
+  .plate .stats .stat span{font-size:10.5px;line-height:1.2}
+  .plate .stats .stat b{font-size:17px}
+  .gline{font-size:11.5px}
+}
 [hidden]{display:none!important}

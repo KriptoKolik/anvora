@@ -281,6 +281,9 @@ function renderHeader() {
   $("#sw")?.addEventListener("click", (e) => { e.preventDefault(); ensureChain().catch((x) => toast(esc(errText(x)), "err")); });
   const r = location.hash.replace(/^#\/?/, "").split("/")[0];
   document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("on", a.dataset.r === r));
+  document.querySelectorAll(".tabbar a").forEach((a) => a.classList.toggle("on", a.dataset.r === r));
+  const mb = document.getElementById("tbmore"); if (mb) mb.classList.toggle("on", mb.dataset.more.split(" ").includes(r));
+  const sh = document.getElementById("tbsheet"); if (sh) sh.hidden = true;
 }
 /* ───────────── sharing ───────────── */
 const ICON_SHARE = `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>`;
@@ -1980,6 +1983,9 @@ async function render() {
   } catch (e) { if (id === renderId) app.innerHTML = `<div class="empty">Something went wrong: ${esc(errText(e))}</div>`; }
 }
 window.addEventListener("hashchange", () => { lastChart = null; render(); });
+// Phone "More" sheet (Bridge, Leaderboard, Wrap): toggle, close on outside tap.
+document.getElementById("tbmore")?.addEventListener("click", (e) => { e.stopPropagation(); const sh = document.getElementById("tbsheet"); sh.hidden = !sh.hidden; });
+document.getElementById("tbsheet")?.addEventListener("click", (e) => { if (e.target.id === "tbsheet") e.currentTarget.hidden = true; });
 // Links inside clickable cards (e.g. the creator on a token card) can't be nested <a>; route them here.
 document.addEventListener("click", (e) => {
   const c = e.target.closest("[data-href]"); if (!c) return;
