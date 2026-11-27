@@ -559,8 +559,16 @@ html[lang=ko] body{word-break:keep-all}
   .spot{grid-column:1/-1;grid-row:3;display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"k k k" "head pct btn" "bar bar bar";align-items:center;column-gap:18px}
   .sp-k{grid-area:k}.sp-head{grid-area:head}.sp-pct{grid-area:pct;justify-content:flex-start;gap:12px}.sp-bar{grid-area:bar}.sp-row{display:none}.sp-btn{grid-area:btn;width:auto}
 }
+.l-short{display:none}
 @media (max-width:600px){
-  .spot{padding:14px;gap:10px;border-radius:16px}
+  .l-long{display:none}.l-short{display:inline}
+  .spot{padding:12px 14px;gap:8px;border-radius:16px;display:grid;grid-template-columns:1fr auto;grid-template-areas:"k k" "head pct" "bar bar"}
+  .sp-k{grid-area:k;font-size:10.5px}.sp-head{grid-area:head;min-width:0}.sp-pct{grid-area:pct;display:grid;justify-items:end;gap:2px}.sp-bar{grid-area:bar;height:7px}
+  .sp-btn{display:none}
+  .sp-head .avatar.lg{width:38px;height:38px;border-radius:10px}
+  .sp-head b{font-size:16px}
+  .sp-pct b{font-size:20px}
+  .sp-pct span{font-size:11px}
   .sp-head .avatar.lg{width:44px;height:44px}
   .sp-pct b{font-size:24px}
   .sp-row{display:none}

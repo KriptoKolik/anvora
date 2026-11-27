@@ -254,7 +254,7 @@ export function initI18n() {
   document.documentElement.lang = LANG;
   const btn = document.getElementById("lang");
   if (btn) {
-    btn.textContent = LANG === "ko" ? "EN" : "한국어";
+    btn.innerHTML = LANG === "ko" ? "EN" : `<span class="l-long">한국어</span><span class="l-short">KO</span>`;
     btn.title = LANG === "ko" ? "Switch to English" : "한국어로 보기";
     btn.setAttribute("aria-label", btn.title);
     btn.onclick = () => setLang(LANG === "ko" ? "en" : "ko");
