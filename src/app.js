@@ -688,7 +688,8 @@ const card = (x) => `
 // Spotlight: the live token closest to graduation, so anyone can make the buy that graduates it.
 function drawSpot(list) {
   const el = $("#spot"); if (!el) return;
-  const c = list.filter((x) => x.status === 1 && !x.junk && !x.test && x.progress > 0 && x.progress < 1 && x.threshold)
+  // Real curves only: a meaningful graduation target (≥ 0.05 WETH) and not already at the line.
+  const c = list.filter((x) => x.status === 1 && !x.junk && !x.test && x.threshold && Number(formatUnits(x.threshold, 18)) >= 0.05 && x.progress > 0.02 && x.progress < 0.985)
     .sort((a, b) => b.progress - a.progress)[0];
   if (!c) { el.hidden = true; return; }
   const thr = Number(formatUnits(c.threshold, 18)), left = Math.max(0, thr - c.raised), pct = c.progress * 100;
