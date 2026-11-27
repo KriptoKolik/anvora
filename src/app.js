@@ -508,14 +508,15 @@ async function viewExplore(id) {
       <div class="ticker" id="ticker"><span class="tk-live"><i></i>Live</span><div class="tk-view"><div class="tk-track" id="tktrack"><span class="tk-i muted">Loading the latest trades…</span></div></div></div>
       <div class="gline" id="gline">&nbsp;</div></div>
   </section>
-  <div class="toolbar" id="list">
+  <div class="toolbar tb1" id="list">
     <div class="seg" id="filter">${[["all", "All"], ["live", "Live"], ["near", "Near graduation"], ["grad", "Graduated"], ["site", `On ${SITE.name}`]]
       .map(([k, n]) => `<button data-k="${k}" class="${ui.filter === k ? "on" : ""}">${n}</button>`).join("")}</div>
-    <div class="seg" id="sort">${[["trend", "Trending"], ["hot", "Most raised"], ["new", "Newest"], ["mcap", "Market cap"], ["prog", "Progress"]].map(([k, n]) => `<button data-k="${k}" class="${ui.sort === k ? "on" : ""}">${n}</button>`).join("")}</div>
-  </div>
-  <div class="toolbar">
-    <input class="inp search" id="q" placeholder="Search name, ticker or address" value="${esc(ui.q)}" />
-    <label class="chk"><input type="checkbox" id="hide" ${ui.hideTest ? "checked" : ""}/> Hide test &amp; broken tokens</label>
+    <div class="tb-right">
+      <input class="inp search" id="q" placeholder="Search name, ticker or address" value="${esc(ui.q)}" />
+      <span class="tcount" id="tcount"><i></i><b>…</b></span>
+      <label class="sortsel"><span>Sort</span><select id="sort">${[["trend", "Trending"], ["hot", "Most raised"], ["new", "Newest"], ["mcap", "Market cap"], ["prog", "Progress"]].map(([k, n]) => `<option value="${k}" ${ui.sort === k ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+      <label class="chk" title="Hide test and broken tokens"><input type="checkbox" id="hide" ${ui.hideTest ? "checked" : ""}/> Hide tests</label>
+    </div>
   </div>
   <div class="grid" id="cards">${Array.from({ length: 6 }, () => `<div class="skel"></div>`).join("")}</div>
   <div id="more" style="text-align:center;margin-top:18px"></div>`;
@@ -554,6 +555,7 @@ async function viewExplore(id) {
     if (ui.sort === "mcap") rows = [...rows].sort((a, b) => m(b) - m(a));
     if (ui.sort === "prog") rows = [...rows].sort((a, b) => b.progress - a.progress);
     rows = [...rows.filter((x) => isOfficial(x.curve, x.token)), ...rows.filter((x) => !isOfficial(x.curve, x.token))];
+    if ($("#tcount")) $("#tcount").innerHTML = `<i></i><b>${fmt(rows.length)}</b> ${rows.length === 1 ? "token" : "tokens"}`;
     $("#cards").innerHTML = rows.length ? rows.slice(0, ui.limit).map(card).join("")
       : `<div class="empty" style="grid-column:1/-1">No launches match. <a href="#/create">Launch the first one</a>.</div>`;
     $("#more").innerHTML = rows.length > ui.limit ? `<button class="btn" id="morebtn">Load more (${rows.length - ui.limit} left)</button>` : "";
@@ -561,7 +563,7 @@ async function viewExplore(id) {
   };
   const reset = () => { ui.limit = PAGE; draw(); };
   $("#filter").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; ui.filter = b.dataset.k; $("#filter").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); reset(); };
-  $("#sort").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; ui.sort = b.dataset.k; $("#sort").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); reset(); };
+  $("#sort").onchange = (e) => { ui.sort = e.target.value; reset(); };
   $("#q").oninput = (e) => { ui.q = e.target.value; reset(); };
   $("#hide").onchange = (e) => { ui.hideTest = e.target.checked; reset(); };
   draw();
