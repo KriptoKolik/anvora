@@ -569,8 +569,6 @@ html[lang=ko] body{word-break:keep-all}
   .sp-head b{font-size:16px}
   .sp-pct b{font-size:20px}
   .sp-pct span{font-size:11px}
-  .sp-head .avatar.lg{width:44px;height:44px}
-  .sp-pct b{font-size:24px}
   .sp-row{display:none}
 }
 [hidden]{display:none!important}
