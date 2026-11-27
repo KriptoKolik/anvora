@@ -533,4 +533,36 @@ html[lang=ko] body{word-break:keep-all}
 :root{--wrap:1200px;--pad:max(4vw,16px)}
 @media (min-width:1440px){:root{--wrap:1480px;--pad:48px}}
 .top,.foot{padding-left:max(var(--pad),calc((100% - var(--wrap)) / 2 + var(--pad)));padding-right:max(var(--pad),calc((100% - var(--wrap)) / 2 + var(--pad)))}
+/* hero spotlight: token closest to graduation */
+.spot{display:flex;flex-direction:column;gap:12px;padding:18px;border-radius:20px;border:1px solid var(--line);background:
+  radial-gradient(120% 80% at 50% 0%,color-mix(in srgb,var(--fire) 14%,transparent),transparent 60%),var(--panel);
+  color:var(--ink);text-decoration:none;align-self:center;transition:border-color .15s,transform .15s}
+.spot:hover{text-decoration:none;border-color:var(--fire);transform:translateY(-2px)}
+.spot[hidden]{display:none!important}
+.sp-k{font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--fire)}
+.sp-head{display:flex;align-items:center;gap:12px}
+.sp-head .avatar.lg{width:56px;height:56px;border-radius:14px;font-size:22px}
+.sp-head b{display:block;font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp-head .mono{font-size:13px}
+.sp-pct{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.sp-pct b{font-size:30px;font-weight:800;line-height:1}
+.sp-pct span{font-size:12.5px}
+.sp-bar{height:10px;border-radius:99px;background:var(--panel2);overflow:hidden}
+.sp-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,color-mix(in srgb,var(--fire) 55%,transparent),var(--fire));box-shadow:0 0 14px color-mix(in srgb,var(--fire) 60%,transparent)}
+.sp-row{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;flex-wrap:wrap}
+.sp-btn{pointer-events:none}
+@media (min-width:1200px){
+  .hero{grid-template-columns:minmax(0,1.15fr) minmax(250px,.72fr) minmax(0,1fr);gap:24px}
+  .hero h1{font-size:clamp(38px,3.6vw,54px)}
+}
+@media (min-width:601px) and (max-width:1199px){
+  .spot{grid-column:1/-1;grid-row:3;display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"k k k" "head pct btn" "bar bar bar";align-items:center;column-gap:18px}
+  .sp-k{grid-area:k}.sp-head{grid-area:head}.sp-pct{grid-area:pct;justify-content:flex-start;gap:12px}.sp-bar{grid-area:bar}.sp-row{display:none}.sp-btn{grid-area:btn;width:auto}
+}
+@media (max-width:600px){
+  .spot{padding:14px;gap:10px;border-radius:16px}
+  .sp-head .avatar.lg{width:44px;height:44px}
+  .sp-pct b{font-size:24px}
+  .sp-row{display:none}
+}
 [hidden]{display:none!important}

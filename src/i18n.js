@@ -43,7 +43,7 @@ const KO = {
   "Hide tests": "테스트 숨기기", "Hide test and broken tokens": "테스트 및 오류 토큰 숨기기", "Search name, ticker or address": "이름, 티커 또는 주소 검색",
   "✓ Official": "✓ 공식", "The official Anvora token": "Anvora 공식 토큰", "New": "신규", "Launched in the last 24 hours": "최근 24시간 내 런칭",
   "Launched on Anvora": "Anvora에서 런칭됨", "Ready to graduate": "졸업 준비 완료", "Inactive": "비활성",
-  "Raised": "모금", "Creator": "크리에이터", "See this creator's launches and holdings": "이 크리에이터의 런칭과 보유 자산 보기",
+  "Raised": "모금", "Closest to graduation": "졸업에 가장 가까운 토큰", "Creator": "크리에이터", "See this creator's launches and holdings": "이 크리에이터의 런칭과 보유 자산 보기",
   "No launches match.": "조건에 맞는 런칭이 없습니다.", "Launch the first one": "첫 토큰을 런칭하세요",
   "Could not load launches:": "런칭 목록을 불러오지 못했습니다:",
 
@@ -184,6 +184,8 @@ const KO_PATTERNS = [
   [/^Load more \((\d+) left\)$/, (_, n) => `더 보기 (${n}개 남음)`],
   [/^Config #(\d+) · fee (.+)%$/, (_, c, f) => `Config #${c} · 수수료 ${f}%`],
   [/^When (.+) WETH has been raised on the curve, it becomes ready to graduate into a permanent Ammora pool\.$/, (_, a) => `커브에서 ${a} WETH가 모금되면 영구적인 Ammora 풀로 졸업할 준비가 됩니다.`],
+  [/^(.+) WETH to graduate$/, (_, a) => `졸업까지 ${a} WETH`],
+  [/^Buy \$(.+) →$/, (_, s) => `$${s} 매수 →`],
   [/^Balance: (.+)$/, (_, b) => `잔액: ${b}`],
   [/^Buy \$(.+) on the curve$/, (_, s) => `커브에서 $${s} 매수`],
   [/^Sell \$(.+) on the curve$/, (_, s) => `커브에서 $${s} 매도`],

@@ -505,6 +505,7 @@ async function viewExplore(id) {
       <p>${esc(SITE.tagline)}</p>
       <div class="row"><a class="btn pri" href="#/create">Launch a token</a><button class="btn" id="browse">Browse launches</button><button class="btn icon" id="shareSite" aria-label="Share ${esc(SITE.name)}" title="Share ${esc(SITE.name)}">${ICON_SHARE}</button></div>
     </div>
+    <a class="spot" id="spot" hidden></a>
     <div class="plate"><div class="ph"><i></i>Live on ${esc(SITE.name)}<button class="ph-link" id="sitestats" title="Show tokens launched on ${esc(SITE.name)}">See them →</button></div>
       <div class="stats" id="stats">${[0, 1, 2, 3].map(() => `<div class="stat"><span>&nbsp;</span><b>—</b></div>`).join("")}</div>
       <div class="ticker" id="ticker"><span class="tk-live"><i></i><span data-ko="실시간">Live</span></span><div class="tk-view"><div class="tk-track" id="tktrack"><span class="tk-i muted">Loading the latest trades…</span></div></div></div>
@@ -542,6 +543,8 @@ async function viewExplore(id) {
     $("#gline").innerHTML = `Across all of Ammora on GIWA: <b>${fmt(list.length)}</b> launches · <b>${fmt(liveAll)}</b> live · <b>${fmt(gradAll)}</b> graduated`;
     $("#sitestats").onclick = () => { $('#filter button[data-k="site"]')?.click(); $("#list").scrollIntoView({ behavior: "smooth" }); };
   }
+
+  drawSpot(list);
 
   const draw = () => {
     const q = ui.q.trim().toLowerCase();
@@ -681,6 +684,23 @@ const card = (x) => `
     <div class="tprog"><div class="bar"><i style="width:${(x.progress * 100).toFixed(1)}%"></i></div><b>${(x.progress * 100).toFixed(x.progress >= 1 ? 0 : 1)}%</b></div>
     <div class="kv tfoot"><span>Creator <span class="clink" data-href="#/portfolio/${x.creator}" title="See this creator's launches and holdings">${short(x.creator)}</span></span><span>${x.time ? ago(x.time) : `block ${x.block}`}</span></div>
   </a>`;
+
+// Spotlight: the live token closest to graduation, so anyone can make the buy that graduates it.
+function drawSpot(list) {
+  const el = $("#spot"); if (!el) return;
+  const c = list.filter((x) => x.status === 1 && !x.junk && !x.test && x.progress > 0 && x.progress < 1 && x.threshold)
+    .sort((a, b) => b.progress - a.progress)[0];
+  if (!c) { el.hidden = true; return; }
+  const thr = Number(formatUnits(c.threshold, 18)), left = Math.max(0, thr - c.raised), pct = c.progress * 100;
+  el.href = `#/token/${c.curve}`;
+  el.innerHTML = `<div class="sp-k">🔥 <span>Closest to graduation</span></div>
+    <div class="sp-head">${avatar(c, "lg")}<div style="min-width:0"><b>${esc(c.name || "Unnamed")}${verTag(c.curve, c.token)}</b><span class="mono muted">$${esc(c.symbol || "?")}</span></div></div>
+    <div class="sp-pct"><b>${pct.toFixed(1)}%</b><span class="muted">${fmt(left)} WETH to graduate</span></div>
+    <div class="sp-bar"><i style="width:${pct.toFixed(1)}%"></i></div>
+    <div class="sp-row"><span><span class="muted">Market cap</span> <b>${c.junk ? "—" : `${fmt(c.mcap)} ETH`}</b></span><span><span class="muted">Raised</span> <b>${fmt(c.raised)} / ${fmt(thr)} WETH</b></span></div>
+    <span class="btn pri block sp-btn">Buy $${esc(c.symbol || "?")} →</span>`;
+  el.hidden = false;
+}
 
 // Live strip on Explore: the latest trades and launches across the site, scrolling.
 function drawTicker(list) {
