@@ -164,6 +164,13 @@ const KO = {
   "Trade complete.": "거래가 완료되었습니다.", "Wrapped.": "래핑되었습니다.", "Unwrapped to ETH.": "ETH로 언래핑되었습니다.", "Swap complete.": "스왑이 완료되었습니다.",
   "Wrapping ETH": "ETH 래핑 중", "Unwrapping WETH": "WETH 언래핑 중",
   "view": "보기",
+  "Receive ETH instead of WETH": "WETH 대신 ETH로 받기", "Unwrap WETH → ETH": "WETH → ETH 언래핑",
+  "Confirm once in your wallet: all steps go in one approval.": "지갑에서 한 번만 확인하세요. 모든 단계가 한 번의 승인으로 처리됩니다.",
+  "Batch sent · waiting for confirmation…": "일괄 전송됨 · 확인 대기 중…", "Confirmed": "확인됨", "Confirmed ·": "확인됨 ·",
+  "The batched transaction failed. Nothing was spent beyond gas; try again.": "일괄 트랜잭션이 실패했습니다. 가스비 외에는 사용되지 않았습니다. 다시 시도하세요.",
+  "The batch is taking long to confirm. Check your wallet's activity.": "일괄 처리 확인이 오래 걸리고 있습니다. 지갑의 활동 내역을 확인하세요.",
+  "Buys are paid in WETH. Missing WETH is wrapped from your ETH automatically, and approvals are for the exact amount only. Wallets that support batching confirm everything in one approval.":
+    "매수는 WETH로 결제됩니다. 부족한 WETH는 ETH에서 자동으로 래핑되며, 승인은 정확한 금액만큼만 요청됩니다. 일괄 처리를 지원하는 지갑에서는 한 번의 승인으로 모두 완료됩니다.",
 };
 
 // UI strings with numbers or names inside: [regex, replacement function].
@@ -186,6 +193,9 @@ const KO_PATTERNS = [
   [/^When (.+) WETH has been raised on the curve, it becomes ready to graduate into a permanent Ammora pool\.$/, (_, a) => `커브에서 ${a} WETH가 모금되면 영구적인 Ammora 풀로 졸업할 준비가 됩니다.`],
   [/^(.+) WETH to graduate$/, (_, a) => `졸업까지 ${a} WETH`],
   [/^Buy \$(.+) →$/, (_, s) => `$${s} 매수 →`],
+  [/^🎓 Graduate \$(.+) into its Ammora pool$/, (_, x) => `🎓 $${x}를 Ammora 풀로 졸업`],
+  [/^🎓 \$(.+) graduated into its Ammora pool!$/, (_, x) => `🎓 $${x}가 Ammora 풀로 졸업했습니다!`],
+  [/^🎓 This buy completes the bonding curve and graduates \$(.+) into its Ammora pool in the same flow\. Only part of your WETH is used; the rest stays in your wallet\.$/, (_, x) => `🎓 이 매수로 본딩 커브가 채워지고 $${x}가 같은 흐름에서 Ammora 풀로 졸업합니다. WETH의 일부만 사용되며 나머지는 지갑에 남습니다.`],
   [/^Balance: (.+)$/, (_, b) => `잔액: ${b}`],
   [/^Buy \$(.+) on the curve$/, (_, s) => `커브에서 $${s} 매수`],
   [/^Sell \$(.+) on the curve$/, (_, s) => `커브에서 $${s} 매도`],

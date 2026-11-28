@@ -356,19 +356,55 @@ async function prepSteps({ approvals = [], wethNeeded = 0n }) {
     if (wbal < wethNeeded) {
       const diff = wethNeeded - wbal;
       if ((await pc.getBalance({ address: W.address })) < diff) throw new Error(`Not enough ETH: you need ${formatUnits(diff, 18)} more ETH (plus gas).`);
-      steps.push({ label: `Wrap ${fu(diff, 18, 6)} ETH → WETH`, run: () => sendTx(wrapTx(diff), "Wrap ETH") });
+      steps.push({ label: `Wrap ${fu(diff, 18, 6)} ETH → WETH`, call: async () => wrapTx(diff), run: () => sendTx(wrapTx(diff), "Wrap ETH") });
     }
   }
   for (const a of approvals) {
     const amount = a.amount ?? a.exactAmountRaw;
     if ((await allowance(a.token, W.address, a.spender)) < amount) {
-      steps.push({ label: "Approve exact amount", run: () => sendTx({ to: a.token, data: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [a.spender, amount] }) }, "Approval") });
+      const tx = { to: a.token, data: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [a.spender, amount] }) };
+      steps.push({ label: "Approve exact amount", call: async () => tx, run: () => sendTx(tx, "Approval") });
     }
   }
   return steps;
 }
 
+// One-approval trades (EIP-5792): wallets that can batch calls get the wrap, approval and trade in a
+// single confirmation. Returns null when the wallet can't batch, so the caller falls back to step by step.
+async function sendBatch(calls) {
+  const chainId = toHex(CHAIN_ID);
+  let caps;
+  try { caps = await W.provider.request({ method: "wallet_getCapabilities", params: [W.address, [chainId]] }); } catch { return null; }
+  const c = caps?.[chainId] || caps?.[String(CHAIN_ID)] || caps?.[CHAIN_ID];
+  const can = c && ((c.atomic && ["supported", "ready"].includes(c.atomic.status)) || c.atomicBatch?.supported);
+  if (!can) return null;
+  let res;
+  try {
+    res = await W.provider.request({ method: "wallet_sendCalls", params: [{ version: "2.0.0", chainId, from: W.address, atomicRequired: true,
+      calls: calls.map((x) => ({ to: x.to, data: x.data, value: toHex(x.value ?? 0n) })) }] });
+  } catch (e) {
+    if (e.code === 4001 || /User (rejected|denied)/i.test(e.message || "")) throw e;
+    return null; // method or version not supported: go step by step
+  }
+  const id = typeof res === "string" ? res : res?.id;
+  toast("Batch sent · waiting for confirmation…");
+  for (let i = 0; i < 150; i++) {
+    await sleep(1500);
+    let st; try { st = await W.provider.request({ method: "wallet_getCallsStatus", params: [id] }); } catch { continue; }
+    const code = st?.status;
+    const bad = (st?.receipts || []).some((r) => r.status === "0x0" || r.status === 0 || r.status === "reverted");
+    if (bad || (typeof code === "number" && code >= 400) || code === "FAILED") throw new Error("The batched transaction failed. Nothing was spent beyond gas; try again.");
+    if (code === 200 || code === "CONFIRMED") {
+      const h = st.receipts?.[st.receipts.length - 1]?.transactionHash;
+      toast(`Confirmed${h ? ` · <a href="${txUrl(h)}" target="_blank" rel="noopener">view</a>` : ""}`, "ok");
+      return st;
+    }
+  }
+  throw new Error("The batch is taking long to confirm. Check your wallet's activity.");
+}
+
 // Modal that runs a list of wallet steps in order and shows progress.
+// Leading steps that expose call() are sent as one batch when the wallet supports it.
 function runSteps(title, steps) {
   const bg = document.createElement("div");
   bg.className = "modal-bg";
@@ -379,7 +415,30 @@ function runSteps(title, steps) {
   const close = $("[data-x]", bg);
   close.onclick = () => bg.remove();
   return (async () => {
-    for (let i = 0; i < steps.length; i++) {
+    let start = 0;
+    let k = 0; while (k < steps.length && steps[k].call) k++;
+    if (k >= 2 && W.provider) {
+      let calls = null;
+      try { calls = await Promise.all(steps.slice(0, k).map((s) => s.call())); } catch {}
+      if (calls) {
+        for (let i = 0; i < k; i++) lis[i].className = "run";
+        $(".msg", bg).textContent = "Confirm once in your wallet: all steps go in one approval.";
+        try {
+          const done = await sendBatch(calls);
+          if (done) {
+            for (let i = 0; i < k; i++) { lis[i].className = "done"; lis[i].querySelector("i").textContent = "✓"; }
+            start = k;
+          } else { for (let i = 0; i < k; i++) lis[i].className = ""; }
+        } catch (e) {
+          for (let i = 0; i < k; i++) { lis[i].className = "fail"; lis[i].querySelector("i").textContent = "!"; }
+          $(".msg", bg).innerHTML = `<span class="bad">${esc(errText(e))}</span>`;
+          close.hidden = false;
+          throw Object.assign(e, { shown: true });
+        }
+        $(".msg", bg).textContent = "Confirm each step in your wallet.";
+      }
+    }
+    for (let i = start; i < steps.length; i++) {
       lis[i].className = "run";
       try { await steps[i].run(); lis[i].className = "done"; lis[i].querySelector("i").textContent = "✓"; }
       catch (e) {
@@ -987,6 +1046,25 @@ function drawChart(trades) {
     <text x="${L_}" y="14" fill="${C.text}" font-size="11">low ${fmt(lo, 4)} ETH · ${trades.length} trades</text></svg>`;
 }
 
+// After a sell, turn the WETH received into ETH. Step by step it unwraps exactly what the sell paid;
+// in a one-approval batch it unwraps the guaranteed minimum (any tiny extra stays as WETH).
+async function unwrapAfterSell(minOut) {
+  const before = await balanceOf(WETH, W.address);
+  return { label: "Unwrap WETH → ETH", call: async () => unwrapTx(minOut), run: async () => {
+    let got = 0n;
+    for (let i = 0; i < 6 && got <= 0n; i++) { got = (await balanceOf(WETH, W.address)) - before; if (got <= 0n) await sleep(1500); }
+    if (got > 0n) await sendTx(unwrapTx(got), "Unwrap");
+  } };
+}
+// The buy that fills the curve also graduates it: migrate into the Ammora pool right after.
+const graduateStep = (ctx) => ({ label: `🎓 Graduate $${ctx.tok.symbol} into its Ammora pool`, run: async () => {
+  let tx = null;
+  for (let i = 0; i < 8 && !tx; i++) { try { tx = (await ctx.cc.planMigrateAtBlock(await pc.getBlockNumber())).transaction; } catch (e) { if (i === 7) throw e; await sleep(2000); } }
+  await sendTx(tx, "Graduation");
+  launchCache.at = 0;
+  toast(`🎓 $${esc(ctx.tok.symbol)} graduated into its Ammora pool!`, "ok", 9000);
+} });
+
 // Pre-graduation: the Ammora ALC bonding curve.
 function curveEngine(ctx) {
   const { cc } = ctx;
@@ -995,11 +1073,11 @@ function curveEngine(ctx) {
     const q = await cc.quoteExactInputAtBlock(amt, sell, await pc.getBlockNumber());
     const fill = A.classifyAmmoraV4ExactInputFill(q, sell);
     let note = "";
-    if (fill.kind === "graduation-boundary") note = `<div class="alert info">This buy completes the bonding curve. Only part of your WETH is used; the rest stays in your wallet. Afterwards anyone can graduate the token.</div>`;
+    if (fill.kind === "graduation-boundary") note = `<div class="alert info">🎓 This buy completes the bonding curve and graduates $${esc(ctx.tok.symbol)} into its Ammora pool in the same flow. Only part of your WETH is used; the rest stays in your wallet.</div>`;
     else if (fill.kind !== "full") throw new Error("This order cannot be filled in full on the curve. Try a smaller amount.");
     return { amountOut: q.amountOut, fee: q.fee, note };
   };
-  const steps = async (side, amt, slip) => {
+  const steps = async (side, amt, slip, opt = {}) => {
     const sell = side === "sell";
     const q = await cc.quoteExactInputAtBlock(amt, sell, await pc.getBlockNumber());
     const fill = A.classifyAmmoraV4ExactInputFill(q, sell);
@@ -1008,7 +1086,10 @@ function curveEngine(ctx) {
     const args = () => ({ includedAmountIn: amt, baseForQuote: sell, allowPartialFill: fill.allowPartialFill, slippageBps: slip, recipient: W.address, deadline: nowSec() + 1200n });
     const plan = await cc.planSwapExactInput(args());
     const s = await prepSteps({ approvals: plan.approvalRequirements, wethNeeded: sell ? 0n : amt });
-    s.push({ label: `${sell ? "Sell" : "Buy"} $${ctx.tok.symbol} on the curve`, run: async () => sendTx((await cc.planSwapExactInput(args())).transaction, sell ? "Sell" : "Buy") });
+    s.push({ label: `${sell ? "Sell" : "Buy"} $${ctx.tok.symbol} on the curve`, call: async () => (await cc.planSwapExactInput(args())).transaction,
+      run: async () => sendTx((await cc.planSwapExactInput(args())).transaction, sell ? "Sell" : "Buy") });
+    if (sell && opt.toEth) s.push(await unwrapAfterSell(q.amountOut * BigInt(10_000 - slip) / 10_000n));
+    if (!sell && fill.kind === "graduation-boundary") s.push(graduateStep(ctx));
     return s;
   };
   return { title: "Trade on the bonding curve", quote, steps, feeToken: "WETH" };
@@ -1027,14 +1108,17 @@ function poolEngine(ctx) {
     const impact = q.priceImpactBps != null ? Number(q.priceImpactBps) / 100 : null;
     return { amountOut: q.expectedAmountOut, fee: q.feeAmount ?? 0n, note: impact != null && impact > 5 ? `<div class="alert warn">High price impact: ${impact.toFixed(2)}%</div>` : "" };
   };
-  const steps = async (side, amt, slip) => {
+  const steps = async (side, amt, slip, opt = {}) => {
     const p = await prepare(side, amt, slip);
     if (p.quote.remainderAmountIn && p.quote.remainderAmountIn > 0n) throw new Error("The pool cannot fill this amount. Try a smaller trade.");
     const s = await prepSteps({ approvals: p.approvalRequirements, wethNeeded: side === "buy" ? amt : 0n });
-    s.push({ label: `${side === "buy" ? "Buy" : "Sell"} $${ctx.tok.symbol} in the Ammora pool`, run: async () => {
-      const t = (await prepare(side, amt, slip)).transaction;
-      return sendTx({ to: t.to, data: t.data, value: t.value ?? 0n }, "Swap");
-    } });
+    s.push({ label: `${side === "buy" ? "Buy" : "Sell"} $${ctx.tok.symbol} in the Ammora pool`,
+      call: async () => { const t = (await prepare(side, amt, slip)).transaction; return { to: t.to, data: t.data, value: t.value ?? 0n }; },
+      run: async () => {
+        const t = (await prepare(side, amt, slip)).transaction;
+        return sendTx({ to: t.to, data: t.data, value: t.value ?? 0n }, "Swap");
+      } });
+    if (side === "sell" && opt.toEth) s.push(await unwrapAfterSell(p.quote.expectedAmountOut * BigInt(10_000 - slip) / 10_000n));
     return s;
   };
   return { title: `Trade in the ${model} Ammora pool`, quote, steps };
@@ -1051,8 +1135,9 @@ function tradeBox(ctx, eng) {
       <div class="help" id="bal">&nbsp;</div><div style="display:flex;gap:6px;margin-top:8px" id="quick"></div></div>
     <div><label class="l">Slippage</label><div class="seg" id="slip">${[50, 100, 300, 500].map((b) => `<button data-b="${b}" class="${b === t.slip ? "on" : ""}">${b / 100}%</button>`).join("")}</div></div>
     <div class="out" id="q"><span class="muted">Enter an amount to see a live quote.</span></div>
+    <label class="chk toeth" id="toethw" hidden><input type="checkbox" id="toeth" ${store.get("anvora.toEth", true) ? "checked" : ""}/> Receive ETH instead of WETH</label>
     <button class="btn pri block" id="go" data-wl="Buy">${W.address ? "Buy" : "Connect wallet"}</button>
-    <div class="help">Buys are paid in WETH. Missing WETH is wrapped from your ETH automatically, and approvals are for the exact amount only.</div>`;
+    <div class="help">Buys are paid in WETH. Missing WETH is wrapped from your ETH automatically, and approvals are for the exact amount only. Wallets that support batching confirm everything in one approval.</div>`;
   const dec = () => (t.side === "buy" ? 18 : ctx.tok.decimals);
   let bals = null;
   const loadBals = async () => {
@@ -1104,7 +1189,9 @@ function tradeBox(ctx, eng) {
     $("#go").dataset.wl = t.side === "buy" ? "Buy" : "Sell";
     if (W.address) $("#go").textContent = $("#go").dataset.wl;
     $("#amt").value = ""; showBal(); requote();
+    $("#toethw").hidden = t.side !== "sell";
   };
+  $("#toeth").onchange = (e) => store.set("anvora.toEth", e.target.checked);
   $("#slip").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; t.slip = Number(b.dataset.b); $("#slip").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); requote(); };
   $("#amt").oninput = requote;
   $("#go").onclick = async () => {
@@ -1114,7 +1201,7 @@ function tradeBox(ctx, eng) {
       const amt = amount();
       if (amt <= 0n) throw new Error("Enter an amount.");
       go.disabled = true;
-      await runSteps(t.side === "buy" ? `Buying $${ctx.tok.symbol}` : `Selling $${ctx.tok.symbol}`, await eng.steps(t.side, amt, t.slip));
+      await runSteps(t.side === "buy" ? `Buying $${ctx.tok.symbol}` : `Selling $${ctx.tok.symbol}`, await eng.steps(t.side, amt, t.slip, { toEth: t.side === "sell" && $("#toeth").checked }));
       toast(`Trade complete.`, "ok");
       render();
     } catch (e) { if (!e.shown) toast(esc(errText(e)), "err", 9000); }
@@ -1576,6 +1663,7 @@ async function viewSwap(id, arg) {
         <div class="srow"><div class="samt out-amt" id="sout">0.0</div><button class="btn asset" id="a2"></button></div></div>
       <div id="sslipwrap"><label class="l">Slippage</label><div class="seg" id="sslip">${[50, 100, 300, 500].map((b) => `<button data-b="${b}" class="${b === sw.slip ? "on" : ""}">${b / 100}%</button>`).join("")}</div></div>
       <div class="out" id="sq"><span class="muted">Choose a token and enter an amount.</span></div>
+      <label class="chk toeth" id="stoethw" hidden><input type="checkbox" id="stoeth" ${store.get("anvora.toEth", true) ? "checked" : ""}/> Receive ETH instead of WETH</label>
       <button class="btn pri block" id="sgo" data-wl="Swap">${W.address ? "Swap" : "Connect wallet"}</button>
       <div class="help">Buys are paid in WETH: missing WETH is wrapped from your ETH automatically. Sells pay out WETH; choose <a href="#/swap/weth" id="toweth">WETH</a> as the token to unwrap it back to ETH.</div>
     </div></div>`;
@@ -1600,6 +1688,7 @@ async function viewSwap(id, arg) {
     $("#a1").innerHTML = sw.buy ? ethLabel : tokLabel();
     $("#a2").innerHTML = sw.buy ? tokLabel() : ethLabel;
     $("#a1").disabled = sw.buy; $("#a2").disabled = !sw.buy;
+    if ($("#stoethw")) $("#stoethw").hidden = sw.buy || isWrap();
     showBal();
   };
   const showBal = () => {
@@ -1701,6 +1790,7 @@ async function viewSwap(id, arg) {
     draw();
   };
   $("#a1").onclick = pick; $("#a2").onclick = pick;
+  $("#stoeth").onchange = (e) => store.set("anvora.toEth", e.target.checked);
   $("#toweth").onclick = (e) => { e.preventDefault(); sw.buy = false; $("#samt").value = ""; select("WETH"); window.scrollTo({ top: 0, behavior: "smooth" }); };
   $("#flip").onclick = () => { sw.buy = !sw.buy; $("#samt").value = ""; $("#sout").textContent = "0.0"; paint(); requote(); };
   $("#samt").oninput = requote;
@@ -1721,7 +1811,7 @@ async function viewSwap(id, arg) {
       if (amt <= 0n) throw new Error("Enter an amount.");
       go.disabled = true;
       const side = sw.buy ? "buy" : "sell";
-      await runSteps(isWrap() ? (sw.buy ? "Wrapping ETH" : "Unwrapping WETH") : sw.buy ? `Buying $${ctx.tok.symbol}` : `Selling $${ctx.tok.symbol}`, await eng.steps(side, amt, sw.slip));
+      await runSteps(isWrap() ? (sw.buy ? "Wrapping ETH" : "Unwrapping WETH") : sw.buy ? `Buying $${ctx.tok.symbol}` : `Selling $${ctx.tok.symbol}`, await eng.steps(side, amt, sw.slip, { toEth: side === "sell" && !isWrap() && $("#stoeth")?.checked }));
       toast(isWrap() ? (sw.buy ? "Wrapped." : "Unwrapped to ETH.") : "Swap complete.", "ok");
       $("#samt").value = ""; $("#sout").textContent = "0.0";
       loadBals(); requote();
